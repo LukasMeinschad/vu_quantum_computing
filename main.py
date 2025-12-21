@@ -21,7 +21,7 @@ def parse_xyz_to_pyscf_driver(filepath, basis_set="sto3g"):
 
 
 if __name__ == "__main__":
-    file_path = "/Users/lukas/Desktop/vu_quantum_computing/test_molecules/h2.xyz"
+    file_path = "./test_molecules/h2.xyz"
     molecule = parse_xyz_to_pyscf_driver(file_path, basis_set="sto3g")
      
     # Obtain the electronic structure Hamiltonian of the molecule
