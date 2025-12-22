@@ -700,7 +700,7 @@ if __name__ == "__main__":
 
 
     print(" === Full Fermionic Hamiltonian ===")
-    h1e, h2e, ecore = get_fermionic_hamiltonian(mf)
+    h1e, h2e, ecore = hamiltonian.get_fermionic_hamiltonian(mf)
     print("Core energy: ", ecore)
     print(f"h1e shape: {h1e.shape}, h2e shape: {h2e.shape}")
     #print("One-electron integrals (h1e):\n", h1e)
@@ -710,7 +710,7 @@ if __name__ == "__main__":
     print("\n === Active Space Fermionic Hamiltonian (CASCI) ===")
     ncas=2
     nelecas=(1,1)
-    h1e, h2e, ecore = get_fermionic_hamiltonian_active_space(mf, ncas=ncas, nelecas=nelecas)
+    h1e, h2e, ecore = hamiltonian.get_fermionic_hamiltonian_active_space(mf, ncas=ncas, nelecas=nelecas)
     print("Core energy (active space): ", ecore)
     print(f"h1e shape: {h1e.shape}, h2e shape: {h2e.shape}")
     #print("One-electron integrals (h1e):\n", h1e)
