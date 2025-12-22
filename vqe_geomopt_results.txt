@@ -1,0 +1,21 @@
+=== Molecule Properties ===
+Atoms:
+  ['H', (0.0, 0.0, -0.37)]
+  ['H', (0.0, 0.0, 0.37)]
+Basis Set: sto-3g
+Number of electrons: 2
+Number of basis functions: 2
+=== SCF Energy Results ===
+Nucleic Repulsion Energy: 0.7151043390810812
+Electronic Energy: -1.8318636464775067
+Total energy: -1.1167593073964255
+Difference (Total - Nuc): -1.8318636464775067
+=== Hamiltonian Components ===
+Core Energy (Nuclear Repulsion): 0.7151043390810812
+One-Electron Integrals (h1e):
+-1.253310 0.000000
+0.000000 -0.475069
+Two-Electron Integrals (h2e):
+0.674756 0.000000 0.000000 0.663711 0.000000 0.181210 0.181210 0.000000
+0.000000 0.181210 0.181210 0.000000 0.663711 0.000000 0.000000 0.697652
+

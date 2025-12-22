@@ -8,112 +8,12 @@ from qiskit_aer import AerSimulator
 from qiskit.primitives import BackendEstimatorV2 
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
+# Modules Import
+import modules.molecule as molecule 
+import modules.hamiltonian as hamiltonian
 
 
 
-def build_molecule_from_xyz(xyz_file, basis="sto-3g", spin=0, charge=0, symmetry=True):
-    """  
-    Helper function to build a PySCF molecule object from a xyz file
-
-    Args:
-        xyz_file (str): Path to the xyz file.
-        basis (str): Basis set to use.
-        spin (int): Spin multiplicity.
-        charge (int): Charge of the molecule.
-    """
-    with open(xyz_file, 'r') as f:
-        lines = f.readlines()
-
-    # First line is number of atoms
-    n_atoms = int(lines[0].strip())
-
-    # Second line is comment line 
-    # Then we have atoms of type Element x y z
-    atom_list = []
-    for i in range(2, 2 + n_atoms):
-        parts = lines[i].split()
-        element = parts[0]
-        x,y,z = float(parts[1]), float(parts[2]), float(parts[3])
-        atom_list.append([element, (x,y,z)])
-
-    # Build the molecule object 
-    mol = gto.Mole()
-    mol.build(
-        verbose=0, # Print symmetry details
-        atom=atom_list,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry
-    )
-    return mol
-
-def print_electronic_energy(scf_calc):
-    """  
-    Prints the electronic energy obtained after the SCF calculation
-    """
-    print(
-        f"Nucleic Repulsion Energy: {scf_calc.energy_nuc()}\n",
-        f"Electronic Energy: {scf_calc.energy_elec()[0]}\n",
-        f"Total energy: {scf_calc.energy_tot()}\n",
-        f"Difference (Total - Nuc): {scf_calc.energy_tot() - scf_calc.energy_nuc()}\n"
-    )
-
-def get_fermionic_hamiltonian(mf):
-    """  
-    Extract fermionic Hamiltonian directly from RHF 
-
-    Args:
-        mf: PySCF RHF object after SCF calculation converged
-
-    Returns:
-        h1e: One-electron integrals in MO basis
-        h2e: Two-electron integrals in MO basis
-        ecore: Core energy (nuclear repulsion energy)
-    """
-    # Nuclear repulsion energy
-    ecore = mf.energy_nuc()
-
-    # Get molecular orbital coefficients
-    mo_coeff = mf.mo_coeff
-    nmo = mo_coeff.shape[1]
-
-    # Transform one electron integrals (kinetic + nuclear attraction) to MO basis
-    h1e = mo_coeff.T @ mf.get_hcore() @ mo_coeff 
-    
-
-    # Transform two-electron integrals from AO to MO basis
-    # This results in (ij|kl) integrals in MO basis
-    eri_mo = ao2mo.kernel(mf.mol, mo_coeff, aosym="s1")
-
-    # Reshape to 4D tensor
-    h2e = eri_mo.reshape((nmo, nmo, nmo, nmo))
-
-    return h1e, h2e, ecore
-
-
-def get_fermionic_hamiltonian_active_space(mf,ncas,nelecas):
-    """ 
-    Construct the fermionic Hamiltonian using CASCI for active space calculation 
-    Args:
-        mf: PySCF RHF object after SCF calculation converged 
-        ncas (int): Number of orbitals in complete active space 
-        nelecas: Tuple(n_alpha, n_beta) Number of electrons in active space 
-
-    Returns:
-        h1e: One-electron integrals for active space 
-        h2e: Two-electron integrals for active space 
-        ecore: Core energy including frozen orbitals
-    """
-    mx = mcscf.CASCI(mf, ncas=ncas, nelecas=nelecas)
-
-    # Run CASCI calculation 
-    mx.kernel()
-
-    # Extract effective Hamiltonian 
-    h1e, ecore = mx.get_h1eff()
-    h2e = ao2mo.restore(1, mx.get_h2eff(), mx.ncas)
-    return h1e, h2e, ecore
 
 def cholesky(V, eps=1e-5):
     """
@@ -168,8 +68,7 @@ def identity(n):
     return SparsePauliOp.from_list([("I" * n, 1.0 )])
 
 
-# TODO Check this implementation
-def bravyi_kitaev_update_set(n,j):
+def bravyi_kitaev_update_set(n, j):
     """  
     Helper function to calculate the update Set U(j) for Bravyi-Kitaev mapping
 
@@ -179,45 +78,60 @@ def bravyi_kitaev_update_set(n,j):
     Args:
         n (int): Number of spin-orbitals
         j (int): Orbital index
+    
+    Returns:
+        list: Indices in the update set
     """
-    update_set = []
-    # Start with qubit at position j
-    current = j 
-    while current < n:
-        update_set.append(current)
-        # Find next position
-        current += (current + 1) & -(current + 1)
+    update_set = [j]
+    
+    # Find parent nodes in the binary tree
+    # Add the bit length that j covers
+    k = j
+    while k < n - 1:
+        # Find the next update position by flipping the rightmost 0 bit
+        # This follows the binary tree structure
+        k = k + ((k + 1) & (~k))
+        if k < n:
+            update_set.append(k)
+        else:
+            break
+    
     return update_set
 
-def bravyi_kitaev_parity_set(n,j):
+def bravyi_kitaev_parity_set(n, j):
     """
     Calculate the parity set P(j) for Bravyi-Kitaev mapping
 
     The parity set P(j) contains indices of qubits that must be checked
-    to determine the parity of orbtials with indices less than j
+    to determine the parity of orbitals with indices less than j
 
     Args:
         n (int): Number of spin-orbitals
         j (int): Orbital index
 
     Returns:
-        parity_set (list): List of qubit indices in the parity set P(j)
+        list: List of qubit indices in the parity set P(j)
     """
-    if j==0:
+    if j == 0:
         return []
+    
     parity_set = []
-    # Start from j-1
-    current = j - 1
-
-    while current >= 0:
-        parity_set.append(current)
-
-        #Remove lest significant bit 
-        parent = current & (current - 1)
-        if parent == current:
+    
+    # Find all positions that store parity information needed for position j
+    # We need to traverse back through the binary tree
+    k = j - 1
+    
+    # Keep removing the rightmost set bit to find parent nodes
+    while k >= 0:
+        parity_set.append(k)
+        # Remove rightmost set bit: k & (k-1)
+        k_new = k & (k - 1)
+        if k_new == k or k == 0:
             break
-        current = parent 
-
+        k = k_new - 1
+        if k < 0:
+            break
+    
     return parity_set
 
 
@@ -694,12 +608,95 @@ def optimize_geometry(ansatz, backend, distance_range=(0.5,3.0), num_points=20,
     return distances, energies, optimal_distance, optimal_energy 
 
 
+# ==== Helper Functions --> Make Module some other time ====
+
+def build_hamiltonian_helper(ecore,h1e,h2e,C,D,ncas):
+    """   
+    Helper function to test the differences of the Jordan-Wigner and Bravyi-Kitaev mappings
+    """
+    Exc = []
+    for p in range(ncas):
+        Excp = [C[p] @ D[p] + C[ncas + p] @ D[ncas + p]]
+        for r in range(p+1, ncas):
+            Excp.append(
+                C[p] @ D[r]
+                + C[ncas + p] @ D[ncas + r]
+                + C[r] @ D[p]
+                + C[ncas + r] @ D[ncas + p]
+            )
+        Exc.append(Excp)
+    # Low-rank decomposition of h2e
+    Lop, ng = cholesky(h2e, eps=1e-5)
+    t1e = h1e - 0.5 * np.einsum("pxxr->pr", h2e)
+    H = ecore * identity(ncas * 2)
+    for p in range(ncas):
+        for r in range(p, ncas):
+            H += t1e[p,r] * Exc[p][r - p]
+    # Add two body terms
+    for g in range(ng):
+        Lg = 0 * identity(ncas * 2)
+        for p in range(ncas):
+            for r in range(p, ncas):
+                Lg += Lop[p,r,g] * Exc[p][r - p]
+        H += 0.5 * (Lg @ Lg)
+    return H.chop().simplify()
+
+def compare_mappings(ecore,h1e,h2e):
+    """  
+    Compares the Jordan-Wigner and Bravyi-Kitaev mapping for the same fermionic Hamiltonian
+    """
+    print("\n === Comparing Jordan-Wigner and Bravyi-Kitaev Mappings ===")
+
+    print("\n-- Jordan-Wigner Mapping --")
+    import time
+    start_jw = time.time()
+    ncas, _ = h1e.shape
+    C_jw, D_jw = creators_destructors(ncas * 2, mapping="jordan_wigner")
+    H_jw = build_hamiltonian_helper(ecore,h1e,h2e,C_jw,D_jw,ncas)
+    end_jw = time.time()
+    print(f"Jordan-Wigner Hamiltonian has {len(H_jw.paulis)} terms")
+    print(f"Time taken for Jordan-Wigner: {end_jw - start_jw:.4f} seconds")
+
+    print("\n-- Bravyi-Kitaev Mapping --")
+    start_bk = time.time()
+    C_bk, D_bk = creators_destructors(ncas * 2, mapping="bravyi_kitaev")
+    H_bk = build_hamiltonian_helper(ecore,h1e,h2e,C_bk,D_bk,ncas)
+    end_bk = time.time()
+    print(f"Bravyi-Kitaev Hamiltonian has {len(H_bk.paulis)} terms")
+    print(f"Time taken for Bravyi-Kitaev: {end_bk - start_bk:.4f} seconds")
+
+    # Compare Speedup and Term Reduction
+    print(f"\nSpeedup (BK vs JW): {(end_jw - start_jw)/(end_bk - start_bk):.2f}x")
+    print(f"Term Reduction (BK vs JW): {len(H_jw.paulis)/len(H_bk.paulis):.2f}x")
+
+    return {
+    "H_jw": H_jw,
+    "H_bk": H_bk,
+    "time_jw": end_jw - start_jw,
+    "time_bk": end_bk - start_bk
+    }
+
+
 if __name__ == "__main__":
+    out_file = "vqe_geomopt_results.txt"
+
+    # Clear Output File
+    with open(out_file, "w") as f:
+        f.write("VQE Geometry Optimization Results\n")
+        f.write("="*40 + "\n\n")
+
+
+
     h2_filepath = "/Users/lukas/Desktop/vu_quantum_computing/test_molecules/h2.xyz"
-    mol = build_molecule_from_xyz(h2_filepath, basis="sto-3g", spin=0, charge=0, symmetry=True)
-    mf = scf.RHF(mol)
-    mf.scf()
-    print_electronic_energy(mf)
+    mol = molecule.build_molecule_from_xyz(h2_filepath, basis="sto-3g", spin=0, charge=0, symmetry=True)
+    mf = molecule.run_scf_calculation(mol, method="RHF")
+    molecule.write_molecule_out(mol, out_file)
+    molecule.write_energy_out(mf, out_file)
+
+    ecore, h1e, h2e = hamiltonian.get_full_space_hamiltonian(mf)
+
+    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file)
+
 
 
     print(" === Full Fermionic Hamiltonian ===")
@@ -718,6 +715,12 @@ if __name__ == "__main__":
     print(f"h1e shape: {h1e.shape}, h2e shape: {h2e.shape}")
     #print("One-electron integrals (h1e):\n", h1e)
     #print("Two-electron integrals (h2e) in MO basis:\n", h2e)
+
+
+    # Comparison of Mappings
+    print("\n" + "="*30 + "\n")
+    comparison = compare_mappings(ecore,h1e,h2e)
+
 
 
     print("\n === Qubit Hamiltonian ===")
