@@ -687,7 +687,7 @@ if __name__ == "__main__":
 
 
 
-    h2_filepath = "/Users/lukas/Desktop/vu_quantum_computing/test_molecules/h2.xyz"
+    h2_filepath = "./test_molecules/h2.xyz"
     mol = molecule.build_molecule_from_xyz(h2_filepath, basis="sto-3g", spin=0, charge=0, symmetry=True)
     mf = molecule.run_scf_calculation(mol, method="RHF")
     molecule.write_molecule_out(mol, out_file)
