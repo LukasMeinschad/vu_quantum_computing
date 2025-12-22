@@ -11,6 +11,8 @@ def build_molecule_from_xyz(xyz_file, basis="sto-3g", spin=0, charge=0, symmetry
         basis (str): Basis set to use.
         spin (int): Spin multiplicity.
         charge (int): Charge of the molecule.
+        symmetry (bool or str): Whether to use symmetry. If given a string of point
+                                group name, the given point group symmetry will be used.
     """
     with open(xyz_file, 'r') as f:
         lines = f.readlines()
@@ -46,7 +48,7 @@ def run_scf_calculation(mol, method="RHF", verbose=False):
 
     Args:
         mol: PySCF molecule object.
-        method (str): SCF method to use ("RHF", "UHF", etc.).
+        method (str): SCF method to use ("RHF", "UHF", or "ROHF").
         verbose (bool): Whether to print SCF details.
     
     Returns:
