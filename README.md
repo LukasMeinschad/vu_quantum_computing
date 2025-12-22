@@ -9,3 +9,4 @@ Install the following Python packages:
 - qiskit-nature
 - qiskit-aqt-provider
 - pyscf
+- matplotlib
