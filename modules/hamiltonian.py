@@ -56,6 +56,44 @@ def get_fermionic_hamiltonian_active_space(mf,ncas,nelecas):
     h2e = ao2mo.restore(1, mx.get_h2eff(), mx.ncas)
     return h1e, h2e, ecore
 
+def run_scf_calculation(mol, method="RHF", verbose=False):
+    """  
+    Run SCF calculation on the given molecule object.
+
+    Args:
+        mol: PySCF molecule object.
+        method (str): SCF method to use ("RHF", "UHF", or "ROHF").
+        verbose (bool): Whether to print SCF details.
+    
+    Returns:
+        mf: Converged SCF object.
+    """
+    print(f"=== Running {method} SCF Calculation ===")
+    print(f"Molecule: {mol.atom}") 
+    print(f"Basis Set: {mol.basis}")
+    print(f"Number of electrons: {mol.nelectron}")
+    print(f"Number of basis functions: {mol.nao_nr()}")
+
+    if method == "RHF":
+        mf = scf.RHF(mol)
+    elif method == "UHF":
+        mf = scf.UHF(mol)
+    elif method == "ROHF":
+        mf = scf.ROHF(mol)
+    else:
+        raise ValueError(f"Unsupported SCF method: {method}")
+    
+    mf.verbose = 4 if verbose else 0
+    print("Starting SCF iterations...")
+    energy = mf.kernel()
+
+    if not mf.converged:
+        print("SCF did not converge!")
+    
+    print(f"Scf converged, final electronic energy: {energy} Ha")
+
+    return mf
+
 def ham_terms_diatomic(x: float):
     """    
     Build Hamiltonian terms for a diatomic molecule based on bond distance x (in Angstrom)
