@@ -1,7 +1,11 @@
+import numpy as np
 import matplotlib.pyplot as plt
+from qiskit_aer import AerSimulator
 from scipy.optimize import minimize
 from qiskit.primitives import BackendEstimatorV2
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+
+import modules.hamiltonian as hamiltonian
 
 
 def cost_func(params, ansatz, H, estimator):
