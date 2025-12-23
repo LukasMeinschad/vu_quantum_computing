@@ -2,7 +2,7 @@ import numpy as np
 from pyscf import gto, scf
 import os
 
-def build_molecule_from_xyz(xyz_file, basis="sto-3g", spin=0, charge=0, symmetry=True):
+def build_molecule_from_xyz(xyz_file, basis="sto-6g", spin=0, charge=0, symmetry=True):
     """  
     Helper function to build a PySCF molecule object from a xyz file
 
