@@ -9,15 +9,19 @@ import modules.optimization as optimization
 
 
 if __name__ == "__main__":
-    out_file = "vqe_geomopt_results.txt"
 
-    # Clear Output File
+    out_file       = "vqe_geomopt_results.txt"
+    input_geometry = "./test_molecules/h2.xyz"
+    spin           = 0
+    charge         = 0
+    symmetry       = True
+    basis_set      = "sto-6g"
+
     with open(out_file, "w") as f:
         f.write("VQE Geometry Optimization Results\n")
         f.write("="*40 + "\n\n")
 
-    h2_filepath = "./test_molecules/h2.xyz"
-    mol = molecule.build_molecule_from_xyz(h2_filepath, basis="sto-6g", spin=0, charge=0, symmetry=True)
+    mol = molecule.build_molecule_from_xyz(input_geometry, basis=basis_set, spin=spin, charge=charge, symmetry=symmetry)
     mf = hamiltonian.run_scf_calculation(mol, method="RHF")
     molecule.write_molecule_out(mol, out_file)
     molecule.write_energy_out(mf, out_file)
@@ -27,7 +31,7 @@ if __name__ == "__main__":
     hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file)
 
     print(" === Full Fermionic Hamiltonian ===")
-    h1e, h2e, ecore = hamiltonian.get_fermionic_hamiltonian(mf)
+    h1e, h2e, ecore = hamiltonian.get_full_space_hamiltonian(mf)
     print("Core energy: ", ecore)
     print(f"h1e shape: {h1e.shape}, h2e shape: {h2e.shape}")
     #print("One-electron integrals (h1e):\n", h1e)

@@ -56,8 +56,6 @@ def write_molecule_out(mol, filepath):
         f.write(f"Number of electrons: {mol.nelectron}\n")
         f.write(f"Number of basis functions: {mol.nao_nr()}\n")
 
-
-
 def write_energy_out(mf, filepath):
     """  
     Writes the final electronic energy to a file
@@ -77,4 +75,3 @@ def write_energy_out(mf, filepath):
         f.write(f"Electronic Energy: {mf.energy_elec()[0]}\n")
         f.write(f"Total energy: {mf.energy_tot()}\n")
         f.write(f"Difference (Total - Nuc): {mf.energy_tot() - mf.energy_nuc()}\n")
-
