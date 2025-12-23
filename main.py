@@ -433,9 +433,9 @@ def optimize_vqe(ansatz, H, backend, initial_params=None, method = "COBYLA", opt
     return result, energy_history
 
 
-def ham_terms(x: float):
+def ham_terms_diatomic(x: float):
     """    
-    Build Hamiltonian terms for H2 molecules based on bond distance x (in Angstrom)
+    Build Hamiltonian terms for a diatomic molecule based on bond distance x (in Angstrom)
 
     Args:
         x (float): Bond distance in Angstrom
@@ -449,11 +449,11 @@ def ham_terms(x: float):
     a = distance / 2 
     mol = gto.Mole()
     mol.build(
-        verbose=0,
-        atom = [["H", (0,0,-a)], ["H", (0,0,a)]],
-        basis = "sto-6g",
-        spin = 0,
-        charge = 0,
+        verbose  = 0,
+        atom     = [["H", (0, 0, -a)], ["H", (0, 0, a)]],
+        basis    = "sto-6g",
+        spin     = 0,
+        charge   = 0,
         symmetry = True
     )
 
@@ -481,7 +481,7 @@ def build_hamiltonian_with_geometry(distx: float) -> SparsePauliOp:
     Returns:
         H_qubit: Qubit Hamiltonian as SparsePauliOp
     """
-    ecore, h1e, h2e = ham_terms(distx)
+    ecore, h1e, h2e = ham_terms_diatomic(distx)
 
     ncas, _ = h1e.shape
     C,D = creators_destructors(ncas * 2, mapping="jordan_wigner")
