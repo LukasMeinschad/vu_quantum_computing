@@ -32,15 +32,15 @@ def get_full_space_hamiltonian(mf):
 
 def get_fermionic_hamiltonian_active_space(mf,ncas,nelecas):
     """ 
-    Construct the fermionic Hamiltonian using CASCI for active space calculation 
+    Construct the fermionic Hamiltonian using CASCI for active space calculation
     Args:
-        mf: PySCF RHF object after SCF calculation converged 
-        ncas (int): Number of orbitals in complete active space 
-        nelecas: Tuple(n_alpha, n_beta) Number of electrons in active space 
+        mf: PySCF RHF object after SCF calculation converged
+        ncas (int): Number of orbitals in complete active space
+        nelecas: Tuple(n_alpha, n_beta) Number of electrons in active space
 
     Returns:
-        h1e: One-electron integrals for active space 
-        h2e: Two-electron integrals for active space 
+        h1e: One-electron integrals for active space
+        h2e: Two-electron integrals for active space
         ecore: Core energy including frozen orbitals
     """
     mx = mcscf.CASCI(mf, ncas=ncas, nelecas=nelecas)

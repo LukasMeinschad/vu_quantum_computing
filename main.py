@@ -463,14 +463,7 @@ def ham_terms_diatomic(x: float):
     if not mf.converged:
         raise ValueError("SCF calculation did not converge.")
     
-    mx = mcscf.CASCI(mf, ncas=2, nelecas=(1,1))
-    casci_energy = mx.kernel()
-    if casci_energy is None:
-        raise ValueError("CASCI calculation did not converge.")
-    
-    h1e, ecore = mx.get_h1eff()
-    h2e = ao2mo.restore(1, mx.get_h2eff(), mx.ncas)
-    return ecore, h1e, h2e
+    return hamiltonian.get_fermionic_hamiltonian_active_space(mf, ncas = 2, nelecas = (1, 1))
 
 def build_hamiltonian_with_geometry(distx: float) -> SparsePauliOp:
     """  
