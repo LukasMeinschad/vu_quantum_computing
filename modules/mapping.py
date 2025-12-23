@@ -1,7 +1,6 @@
 import numpy as np
 from qiskit.quantum_info import SparsePauliOp
 
-
 def cholesky(V, eps=1e-5):
     """
     Cholesky decomposition of two-electron integrals
@@ -205,3 +204,71 @@ def creators_destructors(n, mapping="jordan_wigner"):
     # Annhilation operatos are Hermitian adjoints
     d_list = [c.adjoint() for c in c_list]
     return c_list, d_list
+
+# Helper functions
+
+def build_hamiltonian_helper(ecore,h1e,h2e,C,D,ncas):
+    """   
+    Helper function to test the differences of the Jordan-Wigner and Bravyi-Kitaev mappings
+    """
+    Exc = []
+    for p in range(ncas):
+        Excp = [C[p] @ D[p] + C[ncas + p] @ D[ncas + p]]
+        for r in range(p+1, ncas):
+            Excp.append(
+                C[p] @ D[r]
+                + C[ncas + p] @ D[ncas + r]
+                + C[r] @ D[p]
+                + C[ncas + r] @ D[ncas + p]
+            )
+        Exc.append(Excp)
+    # Low-rank decomposition of h2e
+    Lop, ng = cholesky(h2e, eps=1e-5)
+    t1e = h1e - 0.5 * np.einsum("pxxr->pr", h2e)
+    H = ecore * identity(ncas * 2)
+    for p in range(ncas):
+        for r in range(p, ncas):
+            H += t1e[p,r] * Exc[p][r - p]
+    # Add two body terms
+    for g in range(ng):
+        Lg = 0 * identity(ncas * 2)
+        for p in range(ncas):
+            for r in range(p, ncas):
+                Lg += Lop[p,r,g] * Exc[p][r - p]
+        H += 0.5 * (Lg @ Lg)
+    return H.chop().simplify()
+
+def compare_mappings(ecore,h1e,h2e):
+    """  
+    Compares the Jordan-Wigner and Bravyi-Kitaev mapping for the same fermionic Hamiltonian
+    """
+    print("\n === Comparing Jordan-Wigner and Bravyi-Kitaev Mappings ===")
+
+    print("\n-- Jordan-Wigner Mapping --")
+    import time
+    start_jw = time.time()
+    ncas, _ = h1e.shape
+    C_jw, D_jw = creators_destructors(ncas * 2, mapping="jordan_wigner")
+    H_jw = build_hamiltonian_helper(ecore,h1e,h2e,C_jw,D_jw,ncas)
+    end_jw = time.time()
+    print(f"Jordan-Wigner Hamiltonian has {len(H_jw.paulis)} terms")
+    print(f"Time taken for Jordan-Wigner: {end_jw - start_jw:.4f} seconds")
+
+    print("\n-- Bravyi-Kitaev Mapping --")
+    start_bk = time.time()
+    C_bk, D_bk = creators_destructors(ncas * 2, mapping="bravyi_kitaev")
+    H_bk = build_hamiltonian_helper(ecore,h1e,h2e,C_bk,D_bk,ncas)
+    end_bk = time.time()
+    print(f"Bravyi-Kitaev Hamiltonian has {len(H_bk.paulis)} terms")
+    print(f"Time taken for Bravyi-Kitaev: {end_bk - start_bk:.4f} seconds")
+
+    # Compare Speedup and Term Reduction
+    print(f"\nSpeedup (BK vs JW): {(end_jw - start_jw)/(end_bk - start_bk):.2f}x")
+    print(f"Term Reduction (BK vs JW): {len(H_jw.paulis)/len(H_bk.paulis):.2f}x")
+
+    return {
+    "H_jw": H_jw,
+    "H_bk": H_bk,
+    "time_jw": end_jw - start_jw,
+    "time_bk": end_bk - start_bk
+    }
