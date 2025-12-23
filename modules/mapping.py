@@ -120,8 +120,6 @@ def bravyi_kitaev_parity_set(n, j):
     
     return parity_set
 
-
-
 def creators_destructors(n, mapping="jordan_wigner"):
     """  
     Generate creation and annihilation operators using different mappings
@@ -146,24 +144,27 @@ def creators_destructors(n, mapping="jordan_wigner"):
         destructors (list): List of annihilation operators as SparsePauliOp
     """
     c_list = []
+
     if mapping == "jordan_wigner":
         for p in range(n):
             # Construct Pauli String for position p
             # Left side: Identity operators for qubits > p
             # Right side: Z operators for qubits < p
             if p == 0:
-                ell, r = "I" *(n-1), ""
+                left, right = "I" * (n-1), ""
             elif p == n-1:
-                ell, r = "", "Z" * (n-1)
+                left, right = "", "Z" * (n-1)
             else:
-                ell, r = "I" * (n-p-1), "Z" * p
+                left, right = "I" * (n-p-1), "Z" * p
 
             # Creation operator a_p^dagger
             cp = SparsePauliOp.from_list([
-                (ell + "X" + r, 0.5),
-                (ell + "Y" + r, -0.5j)
+                (left + "X" + right, 0.5),
+                (left + "Y" + right, -0.5j)
             ])
+
             c_list.append(cp)
+
     elif mapping == "bravyi_kitaev":
         for j in range(n):
             U_j = bravyi_kitaev_update_set(n,j)
@@ -196,10 +197,11 @@ def creators_destructors(n, mapping="jordan_wigner"):
                 (pauli_str_x, 0.5),
                 (pauli_str_y, -0.5j)
             ])
+
             c_list.append(cp)
     
     else:
-        raise ValueError(f"Mapping {mapping} not implemented.")
+        raise ValueError(f"Mapping \"{mapping}\" not implemented.")
 
     # Annhilation operatos are Hermitian adjoints
     d_list = [c.adjoint() for c in c_list]
