@@ -223,12 +223,18 @@ def build_hamiltonian(
 # Logging functions
 
 
-def write_hamiltonian_out(ecore, h1e, h2e, filepath):
-    """
-    Helper function to write Hamiltonian components to output file.
+def write_hamiltonian_out(ecore, h1e, h2e, filepath, label="Hamiltonian"):
+    """Helper function to write Hamiltonian components to output file.
+
+    Args:
+        ecore: Core (nuclear repulsion / frozen-core) energy in Hartree.
+        h1e: One-electron integrals in Hartree.
+        h2e: Two-electron integrals in Hartree.
+        filepath: Output file path.
+        label: Short description of the Hamiltonian (e.g. "Hartree-Fock" or "CASCI active space").
     """
     with open(filepath, "a") as f:
-        f.write("=== Hamiltonian Components ===\n")
+        f.write(f"=== {label} Hamiltonian Components ===\n")
         f.write(f"Core Energy (Nuclear Repulsion): {ecore} Hartree\n")
         f.write("One-Electron Integrals (h1e) in Hartree:\n")
         np.savetxt(f, h1e, fmt="%.6f")
@@ -236,6 +242,7 @@ def write_hamiltonian_out(ecore, h1e, h2e, filepath):
         h2e_flat = h2e.reshape(h2e.shape[0], -1)
         np.savetxt(f, h2e_flat, fmt="%.6f")
         f.write("\n")
+
 
 def write_qubit_hamiltonian_out(H, out_file):
     """

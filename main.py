@@ -36,11 +36,13 @@ if __name__ == "__main__":
 
     # Get Hartree-Fock Fermionic Hamiltonian
     ecore, h1e, h2e = hamiltonian.get_hf_hamiltonian(mf)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file)
+    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="Hartree-Fock")
 
     # Get Complete Active Space Fermionic Hamiltonian
     ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file)
+    hamiltonian.write_hamiltonian_out(
+        ecore, h1e, h2e, out_file, label="CASCI"
+    )
 
     # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
     mapping.compare_mappings(ecore, h1e, h2e, out_file)
