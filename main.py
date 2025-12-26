@@ -21,6 +21,7 @@ if __name__ == "__main__":
     nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
     mapping_method = "bravyi_kitaev"
     ansatz_type = "pauli_two_design"
+    backend = AerSimulator()
 
     with open(out_file, "w") as f:
         f.write("VQE Geometry Optimization Results\n")
@@ -58,7 +59,6 @@ if __name__ == "__main__":
     ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
 
     # Run VQE Optimization
-    backend = AerSimulator()
     vqe_result, energy_history = optimization.optimize_vqe(
         ansatz,
         H_qubit,
@@ -68,16 +68,11 @@ if __name__ == "__main__":
         options={"maxiter": 100},
     )
 
-    # Example Geometry Optimization for H2 molecule
-    print("\n" + "=" * 30 + "\n")
-    print("Starting Geometry Optimization for H2 molecule")
-    print("\n" + "=" * 30 + "\n")
-    num_qubits = 4  # 2 orbitals x 2 spins
+    # Run Geometry Optimization
     ansatz_geo = ansatz_module.create_ansatz(
-        num_qubits, ansatz_type="efficient_su2", reps=2
+        num_qubits, ansatz_type=ansatz_type, reps=2
     )
 
-    backend = AerSimulator()
     distances, energies, optimal_distance, optimal_energy = (
         optimization.optimize_geometry(
             ansatz_geo,
