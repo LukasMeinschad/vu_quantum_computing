@@ -1,37 +1,82 @@
 import numpy as np
-from qiskit_nature.units import DistanceUnit
-from qiskit_nature.second_q.drivers import PySCFDriver
-from qiskit_nature.second_q.mappers import JordanWignerMapper
-from qiskit_nature.second_q.mappers import ParityMapper
+from qiskit_aer import AerSimulator
 
-
-def parse_xyz_to_pyscf_driver(filepath, basis_set="sto3g"):
-    """  
-    Parses the molecule xyz file to the PySCFDriver object of qiskit-nature
-
-    atom="H 0 0 0; H 0 0 0.735" etc
-    """
-    with open(filepath, "r") as file:
-        lines = file.readlines()
-        num_atoms = int(lines[0].strip())
-        atom_lines = lines[2:2 + num_atoms]
-        atom_string = "; ".join(line.strip() for line in atom_lines)
-    driver = PySCFDriver(atom=atom_string, basis=basis_set, unit=DistanceUnit.ANGSTROM,charge=0, spin=0)
-    return driver
+import modules.molecule as molecule
+import modules.hamiltonian as hamiltonian
+import modules.mapping as mapping
+import modules.ansatz as ansatz_module
+import modules.optimization as optimization
 
 
 if __name__ == "__main__":
-    file_path = "./test_molecules/h2.xyz"
-    molecule = parse_xyz_to_pyscf_driver(file_path, basis_set="sto3g")
-     
-    # Obtain the electronic structure Hamiltonian of the molecule
-    es_problem = molecule.run()
-    fermionic_operator = es_problem.hamiltonian.second_q_op()
 
-    # Map the fermionic operator to a qubit operator using Jordan-Wigner mapping 
-    mapper = JordanWignerMapper()
-    qubit_jw_op = mapper.map(fermionic_operator)
- 
-    # Use Parity Mapping
-    mapper = ParityMapper()
-    qubit_p_op = mapper.map(fermionic_operator)
+    # Set parameters
+    out_file = "results.log"
+    input_geometry = "./test_molecules/h2.xyz"
+    spin = 0
+    charge = 0
+    symmetry = True
+    basis_set = "sto-6g"
+    ncas = 2  # Number of active space orbitals for CASCI
+    nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
+    mapping_method = "bravyi_kitaev"
+    ansatz_type = "pauli_two_design"
+    backend = AerSimulator()
+
+    with open(out_file, "w") as f:
+        f.write("VQE Geometry Optimization Results\n")
+        f.write("=" * 40 + "\n\n")
+
+    # Build Molecule and Run SCF
+    mol = molecule.build_molecule_from_xyz(
+        input_geometry, basis=basis_set, spin=spin, charge=charge, symmetry=symmetry
+    )
+    mf = hamiltonian.run_scf_calculation(mol, method="RHF")
+    molecule.write_molecule_out(mol, out_file)
+    molecule.write_energy_out(mf, out_file)
+
+    # Get Hartree-Fock Fermionic Hamiltonian
+    ecore, h1e, h2e = hamiltonian.get_hf_hamiltonian(mf)
+    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="Hartree-Fock")
+
+    # Get Complete Active Space Fermionic Hamiltonian
+    ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
+    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="CASCI")
+
+    # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
+    mapping.compare_mappings(ecore, h1e, h2e, out_file)
+
+    # Build Qubit Hamiltonian
+    H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping_method)
+    hamiltonian.write_qubit_hamiltonian_out(H_qubit, out_file)
+
+    # Create ansatz circuit
+    num_qubits = H_qubit.num_qubits
+    ansatz = ansatz_module.create_ansatz(num_qubits, ansatz_type=ansatz_type)
+    ansatz_module.write_ansatz_out(ansatz, out_file)
+    ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
+
+    # Run VQE Optimization
+    vqe_result, energy_history = optimization.vqe_single_point(
+        ansatz,
+        H_qubit,
+        backend,
+        out_file=out_file,
+        method="COBYLA",
+        options={"maxiter": 100},
+    )
+
+    # Run Geometry Optimization
+    ansatz_geo = ansatz_module.create_ansatz(
+        num_qubits, ansatz_type=ansatz_type, reps=2
+    )
+
+    optimization.bond_scan(
+        ansatz_geo,
+        backend,
+        out_file=out_file,
+        distance_range=(0.2, 1.5),
+        num_points=10,
+        method="COBYLA",
+        options={"maxiter": 100},
+    )
