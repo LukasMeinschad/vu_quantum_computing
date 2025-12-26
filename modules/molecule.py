@@ -76,6 +76,6 @@ def write_energy_out(mf, filepath):
 
     with open(filepath, mode) as f:
         f.write("=== SCF Energy Results ===\n")
-        f.write(f"Nucleic Repulsion Energy: {mf.energy_nuc()}\n")
-        f.write(f"Electronic Energy: {mf.energy_elec()[0]}\n")
-        f.write(f"Total energy: {mf.energy_tot()}\n\n")
+        f.write(f"Nucleic Repulsion Energy: {mf.energy_nuc()} Hartree\n")
+        f.write(f"Electronic Energy: {mf.energy_elec()[0]} Hartree\n")
+        f.write(f"Total energy: {mf.energy_tot()} Hartree\n\n")

@@ -9,7 +9,7 @@ def get_full_space_hamiltonian(mf):
     Gets the full-space fermionic Hamiltonian from a converged SCF object.
 
     Args:
-        mf: Converged SCF object.
+        mf: Converged SCF object; mf = mean_field
 
     Returns:
         ecore: Core energy (nuclear repulsion).
@@ -17,10 +17,8 @@ def get_full_space_hamiltonian(mf):
         h2e: Two-electron integrals.
         E_reference
     """
-    # Nuclear repulsion energy
     ecore = mf.energy_nuc()
 
-    # Get molecular orbitals and coefficients
     mo_coeff = mf.mo_coeff
     nmo = mo_coeff.shape[1]
 
@@ -230,10 +228,10 @@ def write_hamiltonian_out(ecore, h1e, h2e, filepath):
     """
     with open(filepath, 'a') as f:
         f.write("=== Hamiltonian Components ===\n")
-        f.write(f"Core Energy (Nuclear Repulsion): {ecore}\n")
-        f.write("One-Electron Integrals (h1e):\n")
+        f.write(f"Core Energy (Nuclear Repulsion): {ecore} Hartree\n")
+        f.write("One-Electron Integrals (h1e) in Hartree:\n")
         np.savetxt(f, h1e, fmt="%.6f")
-        f.write("Two-Electron Integrals (h2e):\n")
+        f.write("Two-Electron Integrals (h2e) in Hartree:\n")
         h2e_flat = h2e.reshape(h2e.shape[0], -1)
         np.savetxt(f, h2e_flat, fmt="%.6f")
         f.write("\n")
