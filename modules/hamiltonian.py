@@ -66,14 +66,8 @@ def run_scf_calculation(mol, method="RHF", verbose=False):
         verbose (bool): Whether to print SCF details.
     
     Returns:
-        mf: Converged SCF object.
+        mf: Converged SCF object; mf = mean_field
     """
-    print(f"=== Running {method} SCF Calculation ===")
-    print(f"Molecule: {mol.atom}") 
-    print(f"Basis Set: {mol.basis}")
-    print(f"Number of electrons: {mol.nelectron}")
-    print(f"Number of basis functions: {mol.nao_nr()}")
-
     if method == "RHF":
         mf = scf.RHF(mol)
     elif method == "UHF":
@@ -83,14 +77,20 @@ def run_scf_calculation(mol, method="RHF", verbose=False):
     else:
         raise ValueError(f"Unsupported SCF method: {method}")
     
+    print(f"=== Running {method} SCF Calculation ===")
+    print(f"Molecule: {mol.atom}") 
+    print(f"Basis Set: {mol.basis}")
+    print(f"Number of electrons: {mol.nelectron}")
+    print(f"Number of basis functions: {mol.nao_nr()}")
+    
     mf.verbose = 4 if verbose else 0
     print("Starting SCF iterations...")
     energy = mf.kernel()
 
     if not mf.converged:
-        print("SCF did not converge!")
-    
-    print(f"Scf converged, final electronic energy: {energy} Ha")
+        raise RuntimeError("SCF did not converge!")
+
+    print(f"SCF converged, final electronic energy: {energy} Ha")
 
     return mf
 
