@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     results = np.column_stack((distances, energies))
     np.savetxt(
-        "geometry_optimization.dat", results, header="Distance(Angstrom) Energy(Hartree)"
+        "bond_scan.dat", results, header="Distance(Angstrom) Energy(Hartree)"
     )
     with open(out_file, "a") as f:
-        f.write("Geometry optimization results saved to geometry_optimization.dat\n")
+        f.write("Geometry optimization results saved to bond_scan.dat\n")
