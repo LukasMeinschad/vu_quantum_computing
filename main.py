@@ -11,7 +11,7 @@ import modules.optimization as optimization
 if __name__ == "__main__":
 
     # Set parameters
-    out_file = "vqe_geomopt_results.txt"
+    out_file = "results.txt"
     input_geometry = "./test_molecules/h2.xyz"
     spin = 0
     charge = 0
@@ -55,15 +55,13 @@ if __name__ == "__main__":
     ansatz_module.write_ansatz_out(ansatz, out_file)
     ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
 
-    # Random initial state
-    x0 = 2 * np.pi * np.random.rand(ansatz.num_parameters)
-
+    # Run VQE Optimization
     backend = AerSimulator()
     vqe_result, energy_history = optimization.optimize_vqe(
         ansatz,
         H_qubit,
         backend,
-        initial_params=x0,
+        out_file=out_file,
         method="COBYLA",
         options={"maxiter": 100},
     )

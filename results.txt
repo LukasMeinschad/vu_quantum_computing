@@ -1,0 +1,98 @@
+VQE Geometry Optimization Results
+========================================
+
+=== Molecule Properties ===
+Atoms:
+  ['H', (0.0, 0.0, -0.37)]
+  ['H', (0.0, 0.0, 0.37)]
+Basis Set: sto-6g
+Number of electrons: 2
+Number of basis functions: 2
+
+=== SCF Energy Results ===
+Nucleic Repulsion Energy: 0.7151043390810812 Hartree
+Electronic Energy: -1.8404765337248332 Hartree
+Total energy: -1.125372194643752 Hartree
+
+=== Hamiltonian Components ===
+Core Energy (Nuclear Repulsion): 0.7151043390810812 Hartree
+One-Electron Integrals (h1e) in Hartree:
+-1.257588 0.000000
+-0.000000 -0.479329
+Two-Electron Integrals (h2e) in Hartree:
+0.674699 -0.000000 -0.000000 0.664384 -0.000000 0.181498 0.181498 -0.000000
+0.000000 0.181498 0.181498 0.000000 0.664384 0.000000 -0.000000 0.699233
+
+=== Hamiltonian Components ===
+Core Energy (Nuclear Repulsion): 0.7151043390810812 Hartree
+One-Electron Integrals (h1e) in Hartree:
+-1.257588 0.000000
+-0.000000 -0.479329
+Two-Electron Integrals (h2e) in Hartree:
+0.674699 -0.000000 -0.000000 0.664384 -0.000000 0.181498 0.181498 -0.000000
+-0.000000 0.181498 0.181498 -0.000000 0.664384 -0.000000 -0.000000 0.699233
+
+
+ === Comparing Jordan-Wigner and Bravyi-Kitaev Mappings ===
+
+-- Jordan-Wigner Mapping --
+Jordan-Wigner Hamiltonian has 15 Pauli terms
+Time taken for Jordan-Wigner: 0.0029 seconds
+
+-- Bravyi-Kitaev Mapping --
+Bravyi-Kitaev Hamiltonian has 15 Pauli terms
+Time taken for Bravyi-Kitaev: 0.0024 seconds
+
+Speedup (BK vs JW): 1.21x
+Term Reduction (BK vs JW): 1.00x
+
+=== Qubit Hamiltonian ===
+Number of qubits: 4
+Number of Pauli terms: 15
+Qubit Hamiltonian terms:
+-0.104695 * IIII
+0.173302 * IIIZ
+0.173302 * IZII
+-0.267336 * IIZI
+-0.267336 * ZIII
+0.168675 * IZIZ
+0.166096 * IIZZ
+0.166096 * ZIIZ
+0.166096 * IZZI
+0.166096 * ZZII
+0.174808 * ZIZI
+0.045374 * IXZX
+-0.045374 * ZXZX
+-0.045374 * IXIX
+0.045374 * ZXIX
+
+
+ === QuantumCircuit Ansatz Details ===
+Number of qubits: 4
+Number of parameters: 8
+Depth: 5
+
+Circuit:
+global phase: -θ[1]/2 - θ[2]/2 - θ[3]/2
+     ┌────────────┐┌───────────┐ ░                           ░ ┌─────────────┐
+q_0: ┤ R(π/4,π/2) ├┤ R(θ[0],0) ├─░────────■──────────────────░─┤ R(θ[4],π/2) ├
+     ├────────────┤└┬──────────┤ ░ ┌───┐┌─┴─┐┌───┐           ░ └┬───────────┬┘
+q_1: ┤ R(π/4,π/2) ├─┤ U1(θ[1]) ├─░─┤ H ├┤ X ├┤ H ├──■────────░──┤ R(θ[5],0) ├─
+     ├────────────┤ ├──────────┤ ░ └───┘└───┘├───┤┌─┴─┐┌───┐ ░ ┌┴───────────┴┐
+q_2: ┤ R(π/4,π/2) ├─┤ U1(θ[2]) ├─░────────■──┤ H ├┤ X ├┤ H ├─░─┤ R(θ[6],π/2) ├
+     ├────────────┤ ├──────────┤ ░ ┌───┐┌─┴─┐├───┤└───┘└───┘ ░ ├─────────────┤
+q_3: ┤ R(π/4,π/2) ├─┤ U1(θ[3]) ├─░─┤ H ├┤ X ├┤ H ├───────────░─┤ R(θ[7],π/2) ├
+     └────────────┘ └──────────┘ ░ └───┘└───┘└───┘           ░ └─────────────┘
+
+=== VQE Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (8,)
+Number of Ansatz parameters: 8
+Iteration 10: Energy = -1.060543 Hartree
+Iteration 20: Energy = -1.104199 Hartree
+Iteration 30: Energy = -1.106895 Hartree
+Iteration 40: Energy = -1.118709 Hartree
+
+Optimization completed in 48 iterations.
+Final energy: -1.123080 Hartree
