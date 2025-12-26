@@ -40,9 +40,9 @@ if __name__ == "__main__":
     ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
     hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file)
 
-    # Comparison of Mappings
+    # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
     print("\n" + "=" * 30 + "\n")
-    comparison = mapping.compare_mappings(ecore, h1e, h2e)
+    mapping.compare_mappings(ecore, h1e, h2e, out_file)
 
     print("\n === Qubit Hamiltonian ===")
     H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping="bravyi_kitaev")
