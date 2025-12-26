@@ -19,7 +19,7 @@ if __name__ == "__main__":
     basis_set = "sto-6g"
     ncas = 2  # Number of active space orbitals for CASCI
     nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
-    mapping_method="bravyi_kitaev"
+    mapping_method = "bravyi_kitaev"
     ansatz_type = "pauli_two_design"
 
     with open(out_file, "w") as f:
@@ -45,10 +45,8 @@ if __name__ == "__main__":
     # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
     mapping.compare_mappings(ecore, h1e, h2e, out_file)
 
-    # Build Qubit Hamiltonian using Bravyi-Kitaev Mapping
-    H_qubit = hamiltonian.build_hamiltonian(
-        ecore, h1e, h2e, mapping_method=mapping_method
-    )
+    # Build Qubit Hamiltonian
+    H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping_method)
     hamiltonian.write_qubit_hamiltonian_out(H_qubit, out_file)
 
     # Create ansatz circuit
@@ -57,46 +55,46 @@ if __name__ == "__main__":
     ansatz_module.write_ansatz_out(ansatz, out_file)
     ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
 
-    # # Random initial state
-    # x0 = 2 * np.pi * np.random.rand(ansatz.num_parameters)
+    # Random initial state
+    x0 = 2 * np.pi * np.random.rand(ansatz.num_parameters)
 
-    # backend = AerSimulator()
-    # vqe_result, energy_history = optimization.optimize_vqe(
-    #     ansatz,
-    #     H_qubit,
-    #     backend,
-    #     initial_params=x0,
-    #     method="COBYLA",
-    #     options={"maxiter": 100},
-    # )
+    backend = AerSimulator()
+    vqe_result, energy_history = optimization.optimize_vqe(
+        ansatz,
+        H_qubit,
+        backend,
+        initial_params=x0,
+        method="COBYLA",
+        options={"maxiter": 100},
+    )
 
-    # # Example Geometry Optimization for H2 molecule
-    # print("\n" + "=" * 30 + "\n")
-    # print("Starting Geometry Optimization for H2 molecule")
-    # print("\n" + "=" * 30 + "\n")
-    # num_qubits = 4  # 2 orbitals x 2 spins
-    # ansatz_geo = ansatz_module.create_ansatz(
-    #     num_qubits, ansatz_type="efficient_su2", reps=2
-    # )
+    # Example Geometry Optimization for H2 molecule
+    print("\n" + "=" * 30 + "\n")
+    print("Starting Geometry Optimization for H2 molecule")
+    print("\n" + "=" * 30 + "\n")
+    num_qubits = 4  # 2 orbitals x 2 spins
+    ansatz_geo = ansatz_module.create_ansatz(
+        num_qubits, ansatz_type="efficient_su2", reps=2
+    )
 
-    # backend = AerSimulator()
-    # distances, energies, optimal_distance, optimal_energy = (
-    #     optimization.optimize_geometry(
-    #         ansatz_geo,
-    #         backend,
-    #         distance_range=(0.2, 1.5),
-    #         num_points=10,
-    #         method="COBYLA",
-    #         options={"maxiter": 100},
-    #     )
-    # )
-    # print(
-    #     f"Optimal bond distance: {optimal_distance:.3f} Å with energy {optimal_energy:.6f} Ha"
-    # )
+    backend = AerSimulator()
+    distances, energies, optimal_distance, optimal_energy = (
+        optimization.optimize_geometry(
+            ansatz_geo,
+            backend,
+            distance_range=(0.2, 1.5),
+            num_points=10,
+            method="COBYLA",
+            options={"maxiter": 100},
+        )
+    )
+    print(
+        f"Optimal bond distance: {optimal_distance:.3f} Å with energy {optimal_energy:.6f} Ha"
+    )
 
-    # # Save to text file
-    # results = np.column_stack((distances, energies))
-    # np.savetxt(
-    #     "h2_geometry_optimization.txt", results, header="Distance(Angstrom) Energy(Ha)"
-    # )
-    # print("Geometry optimization results saved to h2_geometry_optimization.txt")
+    # Save to text file
+    results = np.column_stack((distances, energies))
+    np.savetxt(
+        "h2_geometry_optimization.txt", results, header="Distance(Angstrom) Energy(Ha)"
+    )
+    print("Geometry optimization results saved to h2_geometry_optimization.txt")
