@@ -1,4 +1,8 @@
 import numpy as np
+import matplotlib
+
+# Use a non-interactive backend to avoid Tkinter GUI issues
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from qiskit_aer import AerSimulator
 from scipy.optimize import minimize
@@ -26,7 +30,7 @@ def cost_func(params, ansatz, H, estimator):
     return energy
 
 
-def optimize_vqe(
+def vqe_single_point(
     ansatz,
     H,
     backend,
@@ -68,7 +72,7 @@ def optimize_vqe(
     ansatz_isa = pm.run(ansatz)
 
     with open(out_file, "a") as f:
-        f.write("\n=== VQE Optimization ===\n")
+        f.write("\n=== VQE Single Point Optimization ===\n")
         f.write(f"Backend: {backend_sim.name}\n")
         f.write(f"Method: {method}, Options: {options}\n")
         f.write(f"Initial parameters shape: {initial_params.shape}\n")
@@ -118,6 +122,7 @@ def vqe_for_geometry(
     distance,
     ansatz,
     backend,
+    out_file,
     initial_params=None,
     method="COBYLA",
     options={"maxiter": 100},
@@ -135,10 +140,11 @@ def vqe_for_geometry(
     """
     H = hamiltonian.build_hamiltonian_with_geometry(distance)
 
-    result, _ = optimize_vqe(
+    result, _ = vqe_single_point(
         ansatz=ansatz,
         H=H,
         backend=backend,
+        out_file=out_file,
         initial_params=initial_params,
         method=method,
         options=options,
@@ -146,9 +152,10 @@ def vqe_for_geometry(
     return result, result.fun
 
 
-def optimize_geometry(
+def bond_scan(
     ansatz,
     backend,
+    out_file,
     distance_range=(0.5, 3.0),
     num_points=20,
     method="COBYLA",
@@ -160,6 +167,7 @@ def optimize_geometry(
     Args:
         ansatz: Qiskit QuantumCircuit object representing the ansatz
         backend: Qiskit backend (simulator or real device)
+        out_file: Path to output file for logging results
         distance_range (tuple): Range of bond distances (min, max) in Angstrom
         num_points (int): Number of points in the distance range
         method (str): Optimization method (e.g., "COBYLA", "Nelder-Mead", etc.)
@@ -174,54 +182,70 @@ def optimize_geometry(
     distances = np.linspace(distance_range[0], distance_range[1], num_points)
     energies = []
 
-    print(f"\n === Geometry Optimization ===")
-    print(
-        f"Scanning {num_points} points from {distance_range[0]} Å to {distance_range[1]} Å"
-    )
+    with open(out_file, "a") as f:
+        f.write("\n=== Bond Scan ===\n")
+        f.write(
+            f"Scanning {num_points} points from {distance_range[0]} Å to {distance_range[1]} Å\n"
+        )
 
     # Use previous optimized parameters as initial guess for next point
     initial_params = None
 
     for i, dist in enumerate(distances):
-        print(f"\n--- Point {i+1}/{num_points}: Distance = {dist:.3f} Å ---")
+        with open(out_file, "a") as f:
+            f.write(f"\n--- Point {i+1}/{num_points}: Distance = {dist:.3f} Å ---\n")
 
         try:
             result, energy = vqe_for_geometry(
                 distance=dist,
                 ansatz=ansatz,
                 backend=backend,
+                out_file=out_file,
                 initial_params=initial_params,
                 method=method,
                 options=options,
             )
             energies.append(energy)
             initial_params = result.x  # Update initial params for next iteration
-            print(f"VQE Energy at {dist:.3f} Å: {energy:.6f} Ha")
+            with open(out_file, "a") as f:
+                f.write(f"VQE Energy at {dist:.3f} Å: {energy:.6f} Ha\n")
         except Exception as e:
-            print(f"Error at distance {dist:.3f} Å: {e}")
+            with open(out_file, "a") as f:
+                f.write(f"Error at distance {dist:.3f} Å: {e}\n")
             energies.append(None)
 
-    energies = np.array(energies)
-    # Find optimal geometry
+    energies = np.array(energies, dtype=object)
+    # Find optimal geometry among successful points
     valid_idx = np.where(energies != None)[0]
-    min_idx = valid_idx[np.argmin(energies[valid_idx])]
+
+    if valid_idx.size == 0:
+        # No successful VQE evaluations; log and raise a clear error
+        with open(out_file, "a") as f:
+            f.write(
+                "\nGeometry optimization failed: no valid VQE energies were obtained for any distance.\n"
+            )
+        raise RuntimeError(
+            "Geometry optimization failed: no valid VQE energies were obtained for any distance."
+        )
+
+    min_idx = valid_idx[np.argmin(energies[valid_idx].astype(float))]
     optimal_distance = distances[min_idx]
-    optimal_energy = energies[min_idx]
-    print(
-        f"\nOptimal bond distance: {optimal_distance:.3f} Å with energy {optimal_energy:.6f} Ha"
-    )
+    optimal_energy = float(energies[min_idx])
+    with open(out_file, "a") as f:
+        f.write(
+            f"\nOptimal bond distance: {optimal_distance:.3f} Å with energy {optimal_energy:.6f} Hartree\n"
+        )
 
     # Plot PES
-    # Filter out None values for plotting
     valid_distances = distances[valid_idx]
     valid_energies = energies[valid_idx]
     plt.figure(figsize=(8, 5))
     plt.plot(valid_distances, valid_energies, marker="o")
-    plt.xlabel("Bond Distance (Å)")
-    plt.ylabel("Energy (Ha)")
+    plt.xlabel("Bond Distance / Å")
+    plt.ylabel("Energy / Hartree")
     plt.title("Potential Energy Surface of H2 Molecule")
     plt.grid()
-    plt.savefig("h2_pes.png", dpi=300, bbox_inches="tight")
-    print("Potential Energy Surface plot saved to h2_pes.png")
-    plt.show()
+    plt.savefig("images/h2_pes.png", dpi=300, bbox_inches="tight")
+    plt.close()
+
     return distances, energies, optimal_distance, optimal_energy

@@ -11,7 +11,7 @@ import modules.optimization as optimization
 if __name__ == "__main__":
 
     # Set parameters
-    out_file = "results.txt"
+    out_file = "results.log"
     input_geometry = "./test_molecules/h2.xyz"
     spin = 0
     charge = 0
@@ -41,9 +41,7 @@ if __name__ == "__main__":
 
     # Get Complete Active Space Fermionic Hamiltonian
     ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
-    hamiltonian.write_hamiltonian_out(
-        ecore, h1e, h2e, out_file, label="CASCI"
-    )
+    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="CASCI")
 
     # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
     mapping.compare_mappings(ecore, h1e, h2e, out_file)
@@ -59,7 +57,7 @@ if __name__ == "__main__":
     ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
 
     # Run VQE Optimization
-    vqe_result, energy_history = optimization.optimize_vqe(
+    vqe_result, energy_history = optimization.vqe_single_point(
         ansatz,
         H_qubit,
         backend,
@@ -73,23 +71,19 @@ if __name__ == "__main__":
         num_qubits, ansatz_type=ansatz_type, reps=2
     )
 
-    distances, energies, optimal_distance, optimal_energy = (
-        optimization.optimize_geometry(
-            ansatz_geo,
-            backend,
-            distance_range=(0.2, 1.5),
-            num_points=10,
-            method="COBYLA",
-            options={"maxiter": 100},
-        )
-    )
-    print(
-        f"Optimal bond distance: {optimal_distance:.3f} Å with energy {optimal_energy:.6f} Ha"
+    distances, energies, optimal_distance, optimal_energy = optimization.bond_scan(
+        ansatz_geo,
+        backend,
+        out_file=out_file,
+        distance_range=(0.2, 1.5),
+        num_points=10,
+        method="COBYLA",
+        options={"maxiter": 100},
     )
 
-    # Save to text file
     results = np.column_stack((distances, energies))
     np.savetxt(
-        "h2_geometry_optimization.txt", results, header="Distance(Angstrom) Energy(Ha)"
+        "geometry_optimization.dat", results, header="Distance(Angstrom) Energy(Hartree)"
     )
-    print("Geometry optimization results saved to h2_geometry_optimization.txt")
+    with open(out_file, "a") as f:
+        f.write("Geometry optimization results saved to geometry_optimization.dat\n")
