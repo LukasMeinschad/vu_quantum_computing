@@ -162,7 +162,7 @@ def build_hamiltonian_with_geometry(distx: float) -> SparsePauliOp:
 
 
 def build_hamiltonian(
-    ecore: float, h1e: np.ndarray, h2e: np.ndarray, mapping="jordan_wigner"
+    ecore: float, h1e: np.ndarray, h2e: np.ndarray, mapping_method="jordan_wigner"
 ) -> SparsePauliOp:
     """
     Buils the qubit Hamiltonian from fermionic integrals
@@ -170,12 +170,11 @@ def build_hamiltonian(
     Fermionic Hamiltonian is:
     H = E_core + sum_{pq} h1e_{pq} a_p^† a_q + 0.5 sum_{pqrs} h2e_{pqrs} a_p^† a_q^† a_r a_s
     """
-
     ncas, _ = h1e.shape
 
     # Get creation and annihilation operators
     # 2 * ncas to account for spin-orbitals
-    C, D = mapping.creators_destructors(ncas * 2, mapping=mapping)
+    C, D = mapping.creators_destructors(ncas * 2, mapping=mapping_method)
 
     # Build excitation operators c_p^† c_r for all p,r
     # Exc[p][r-p] represents excitation from orbital r to orbital p
@@ -236,4 +235,21 @@ def write_hamiltonian_out(ecore, h1e, h2e, filepath):
         f.write("Two-Electron Integrals (h2e) in Hartree:\n")
         h2e_flat = h2e.reshape(h2e.shape[0], -1)
         np.savetxt(f, h2e_flat, fmt="%.6f")
+        f.write("\n")
+
+def write_qubit_hamiltonian_out(H, out_file):
+    """
+    Writes the qubit Hamiltonian to the output file.
+
+    Args:
+        H: Qubit Hamiltonian as SparsePauliOp.
+        out_file (str): Path to the output file.
+    """
+    with open(out_file, "a") as f:
+        f.write("=== Qubit Hamiltonian ===\n")
+        f.write(f"Number of qubits: {H.num_qubits}\n")
+        f.write(f"Number of Pauli terms: {len(H.paulis)}\n")
+        f.write("Qubit Hamiltonian terms:\n")
+        for pauli, coeff in zip(H.paulis, H.coeffs):
+            f.write(f"{coeff.real:.6f} * {pauli}\n")
         f.write("\n")

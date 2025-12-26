@@ -43,11 +43,9 @@ if __name__ == "__main__":
     # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
     mapping.compare_mappings(ecore, h1e, h2e, out_file)
 
-    print("\n === Qubit Hamiltonian ===")
-    H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping="bravyi_kitaev")
-    print("Qubit Hamiltonian:\n", H_qubit)
-    print("Number of qubits:", H_qubit.num_qubits)
-    print("Number of terms in Hamiltonian:", len(H_qubit.paulis))
+    # Build Qubit Hamiltonian using Bravyi-Kitaev Mapping
+    H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping_method="bravyi_kitaev")
+    hamiltonian.write_qubit_hamiltonian_out(H_qubit, out_file)
 
     # Create ansatz circuit
     num_qubits = H_qubit.num_qubits

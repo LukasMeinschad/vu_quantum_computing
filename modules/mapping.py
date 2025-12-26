@@ -273,7 +273,7 @@ def compare_mappings(ecore, h1e, h2e, out_file):
         f.write(f"Bravyi-Kitaev Hamiltonian has {len(H_bk.paulis)} Pauli terms\n")
         f.write(f"Time taken for Bravyi-Kitaev: {end_bk - start_bk:.4f} seconds\n")
         f.write(f"\nSpeedup (BK vs JW): {speedup:.2f}x\n")
-        f.write(f"Term Reduction (BK vs JW): {term_reduction:.2f}x\n")
+        f.write(f"Term Reduction (BK vs JW): {term_reduction:.2f}x\n\n")
 
     return {
         "H_jw": H_jw,
