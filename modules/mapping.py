@@ -39,10 +39,7 @@ def cholesky(V, eps=1e-5):
         vmax = Dmax[nu_max]
 
     L = L[:, :ng].reshape((no, no, ng))
-    print(
-        "Accuracy of Cholesky decomposition:",
-        np.abs(np.einsum("prg,qsg->prqs", L, L) - V).max(),
-    )
+
     return L, ng
 
 

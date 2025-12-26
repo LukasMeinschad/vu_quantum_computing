@@ -41,7 +41,6 @@ if __name__ == "__main__":
     hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file)
 
     # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
-    print("\n" + "=" * 30 + "\n")
     mapping.compare_mappings(ecore, h1e, h2e, out_file)
 
     print("\n === Qubit Hamiltonian ===")
