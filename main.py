@@ -71,7 +71,7 @@ if __name__ == "__main__":
         num_qubits, ansatz_type=ansatz_type, reps=2
     )
 
-    distances, energies, optimal_distance, optimal_energy = optimization.bond_scan(
+    optimization.bond_scan(
         ansatz_geo,
         backend,
         out_file=out_file,
@@ -80,10 +80,3 @@ if __name__ == "__main__":
         method="COBYLA",
         options={"maxiter": 100},
     )
-
-    results = np.column_stack((distances, energies))
-    np.savetxt(
-        "bond_scan.dat", results, header="Distance(Angstrom) Energy(Hartree)"
-    )
-    with open(out_file, "a") as f:
-        f.write("Geometry optimization results saved to bond_scan.dat\n")

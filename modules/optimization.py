@@ -247,5 +247,12 @@ def bond_scan(
     plt.grid()
     plt.savefig("images/h2_pes.png", dpi=300, bbox_inches="tight")
     plt.close()
+    
+    results = np.column_stack((distances, energies))
+    np.savetxt(
+        "bond_scan.dat", results, header="Distance(Angstrom) Energy(Hartree)"
+    )
+    with open(out_file, "a") as f:
+        f.write("Geometry optimization results saved to bond_scan.dat\n")
 
     return distances, energies, optimal_distance, optimal_energy
