@@ -1,4 +1,3 @@
-import numpy as np
 from qiskit_aer import AerSimulator
 
 import modules.molecule as molecule
