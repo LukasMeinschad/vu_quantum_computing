@@ -695,6 +695,7 @@ if __name__ == "__main__":
 
     ecore, h1e, h2e = hamiltonian.get_full_space_hamiltonian(mf)
 
+    
     hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file)
 
 

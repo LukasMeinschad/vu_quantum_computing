@@ -130,10 +130,27 @@ This mapping requies $O(n)$ Pauli operators to represent a single fermionic oper
 
 #### Bravyi-Kitaev Mapping
 
-For a molecular orbital basis of size $N$ there are again $N$ qubits used 
+This mapping aims to improve upon the linear scaling of the Jordan-Wigner transformation of occupation and parity bases. For a molecular orbtial basis of size $N$ there are again $N$ qubits used. The information stored within each qubit varies dependent on the index $i$. We begin at index $i=0$. 
+
+When $i$ is even, qubit $i$ stores the occupation number of orbital $i$ similar to the Jordan-Wigner mapping. When $i$ is odd, the qubit stores the parity of a particular set of occupation numbers. When $\log_2(i+1)$ is an integer the qubit stores the parity of the occupation numbers of all orbitals with indices less than or equal to $i$. This mapping is best understood through a consideration of the matrix with transforms a vector of orbital occupation to qubit states example:
+
+![alt text](image-1.png)
+
++ $o_i$ values correspond to the occupation number with the orbital index $i$
++ $q_i$ values correspond to the state of the qubit with index $i$
++ Where $q_i$ is $o$ qubit $i$ is in the $|0\rangle$ state and similar where $q_i$ is $1$ qubit $i$ is in the $|1\rangle$ state.
++ The matrix on the left side is the matrix that transforms orbital occupation numbers to qubit states 
+
+This gives us a scaling of electronic creation and annihilation operators with $O(\log_2 N)$ qubit operations.
+
+$$a_i^\dagger = \frac{1}{2}(X_{U(i)} \otimes X_i \otimes Z_{P(i)} - \frac{i}{2}X_{U(i)} \otimes Y_i \otimes Z_{P(i)})$$
+$$a_i = \frac{1}{2}(X_{U(i)} \otimes X_i \otimes Z_{P(i)} + \frac{i}{2}X_{U(i)} \otimes Y_i \otimes Z_{P(i)})$$
+
+where $U(i)$ is the set of qubits that store the update information for qubit $i$ and $P(i)$ is the set of qubits that store the parity information for qubit $i$.
 
 
 # Resources
 
 + https://link.springer.com/article/10.1186/s41313-021-00032-6
 + https://pubs.acs.org/doi/full/10.1021/acs.jctc.8b00450
++ https://quantum.cloud.ibm.com/learning/en/courses/quantum-chem-with-vqe/geometry
