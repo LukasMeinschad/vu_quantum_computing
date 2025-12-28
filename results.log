@@ -1,0 +1,271 @@
+VQE Geometry Optimization Results
+========================================
+
+=== Molecule Properties ===
+Atoms:
+  ['H', (0.0, 0.0, -0.37)]
+  ['H', (0.0, 0.0, 0.37)]
+Basis Set: sto-6g
+Number of electrons: 2
+Number of basis functions: 2
+
+=== SCF Energy Results ===
+Nucleic Repulsion Energy: 0.7151043390810812 Hartree
+Electronic Energy: -1.8404765337248332 Hartree
+Total energy: -1.125372194643752 Hartree
+
+=== Hartree-Fock Hamiltonian Components ===
+Core Energy (Nuclear Repulsion): 0.7151043390810812 Hartree
+One-Electron Integrals (h1e) in Hartree:
+-1.257588 0.000000
+-0.000000 -0.479329
+Two-Electron Integrals (h2e) in Hartree:
+0.674699 -0.000000 -0.000000 0.664384 -0.000000 0.181498 0.181498 -0.000000
+0.000000 0.181498 0.181498 0.000000 0.664384 0.000000 -0.000000 0.699233
+
+=== CASCI Hamiltonian Components ===
+Core Energy (Nuclear Repulsion): 0.7151043390810812 Hartree
+One-Electron Integrals (h1e) in Hartree:
+-1.257588 0.000000
+-0.000000 -0.479329
+Two-Electron Integrals (h2e) in Hartree:
+0.674699 -0.000000 -0.000000 0.664384 -0.000000 0.181498 0.181498 -0.000000
+-0.000000 0.181498 0.181498 -0.000000 0.664384 -0.000000 -0.000000 0.699233
+
+
+ === Comparing Jordan-Wigner and Bravyi-Kitaev Mappings ===
+
+-- Jordan-Wigner Mapping --
+Jordan-Wigner Hamiltonian has 15 Pauli terms
+Time taken for Jordan-Wigner: 0.0029 seconds
+
+-- Bravyi-Kitaev Mapping --
+Bravyi-Kitaev Hamiltonian has 15 Pauli terms
+Time taken for Bravyi-Kitaev: 0.0024 seconds
+
+Speedup (BK vs JW): 1.21x
+Term Reduction (BK vs JW): 1.00x
+
+=== Qubit Hamiltonian ===
+Number of qubits: 4
+Number of Pauli terms: 15
+Qubit Hamiltonian terms:
+-0.104695 * IIII
+0.173302 * IIIZ
+0.173302 * IZII
+-0.267336 * IIZI
+-0.267336 * ZIII
+0.168675 * IZIZ
+0.166096 * IIZZ
+0.166096 * ZIIZ
+0.166096 * IZZI
+0.166096 * ZZII
+0.174808 * ZIZI
+0.045374 * IXZX
+-0.045374 * ZXZX
+-0.045374 * IXIX
+0.045374 * ZXIX
+
+
+ === QuantumCircuit Ansatz Details ===
+Number of qubits: 4
+Number of parameters: 8
+Depth: 5
+
+Circuit:
+global phase: -θ[0]/2 - θ[4]/2 - θ[6]/2
+     ┌────────────┐  ┌──────────┐  ░                           ░ »
+q_0: ┤ R(π/4,π/2) ├──┤ U1(θ[0]) ├──░────────■──────────────────░─»
+     ├────────────┤┌─┴──────────┴┐ ░ ┌───┐┌─┴─┐┌───┐           ░ »
+q_1: ┤ R(π/4,π/2) ├┤ R(θ[1],π/2) ├─░─┤ H ├┤ X ├┤ H ├──■────────░─»
+     ├────────────┤├─────────────┤ ░ └───┘└───┘├───┤┌─┴─┐┌───┐ ░ »
+q_2: ┤ R(π/4,π/2) ├┤ R(θ[2],π/2) ├─░────────■──┤ H ├┤ X ├┤ H ├─░─»
+     ├────────────┤└┬───────────┬┘ ░ ┌───┐┌─┴─┐├───┤└───┘└───┘ ░ »
+q_3: ┤ R(π/4,π/2) ├─┤ R(θ[3],0) ├──░─┤ H ├┤ X ├┤ H ├───────────░─»
+     └────────────┘ └───────────┘  ░ └───┘└───┘└───┘           ░ »
+«       ┌──────────┐ 
+«q_0: ──┤ U1(θ[4]) ├─
+«     ┌─┴──────────┴┐
+«q_1: ┤ R(θ[5],π/2) ├
+«     └─┬──────────┬┘
+«q_2: ──┤ U1(θ[6]) ├─
+«     ┌─┴──────────┴┐
+«q_3: ┤ R(θ[7],π/2) ├
+«     └─────────────┘
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (8,)
+Number of Ansatz parameters: 8
+Iteration 10: Energy = 0.181994 Hartree
+Iteration 20: Energy = 0.203838 Hartree
+
+Optimization completed in 29 iterations.
+Final energy: 0.168328 Hartree
+
+=== Bond Scan ===
+Scanning 10 points from 0.2 Å to 1.5 Å
+
+--- Point 1/10: Distance = 0.200 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = 1.026637 Hartree
+Iteration 20: Energy = 0.989001 Hartree
+Iteration 30: Energy = 0.966682 Hartree
+Iteration 40: Energy = 0.970920 Hartree
+Iteration 50: Energy = 0.971090 Hartree
+
+Optimization completed in 50 iterations.
+Final energy: 0.940143 Hartree
+VQE Energy at 0.200 Å: 0.940143 Ha
+
+--- Point 2/10: Distance = 0.344 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.218429 Hartree
+Iteration 20: Energy = -0.210732 Hartree
+Iteration 30: Energy = -0.209307 Hartree
+Iteration 40: Energy = -0.209969 Hartree
+
+Optimization completed in 46 iterations.
+Final energy: -0.248670 Hartree
+VQE Energy at 0.344 Å: -0.248670 Ha
+
+--- Point 3/10: Distance = 0.489 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.610216 Hartree
+Iteration 20: Energy = -0.613826 Hartree
+Iteration 30: Energy = -0.610983 Hartree
+Iteration 40: Energy = -0.601738 Hartree
+
+Optimization completed in 41 iterations.
+Final energy: -0.633070 Hartree
+VQE Energy at 0.489 Å: -0.633070 Ha
+
+--- Point 4/10: Distance = 0.633 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.773633 Hartree
+Iteration 20: Energy = -0.761410 Hartree
+Iteration 30: Energy = -0.769335 Hartree
+Iteration 40: Energy = -0.767895 Hartree
+
+Optimization completed in 40 iterations.
+Final energy: -0.785792 Hartree
+VQE Energy at 0.633 Å: -0.785792 Ha
+
+--- Point 5/10: Distance = 0.778 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.832572 Hartree
+Iteration 20: Energy = -0.830731 Hartree
+Iteration 30: Energy = -0.836202 Hartree
+Iteration 40: Energy = -0.825949 Hartree
+
+Optimization completed in 45 iterations.
+Final energy: -0.847432 Hartree
+VQE Energy at 0.778 Å: -0.847432 Ha
+
+--- Point 6/10: Distance = 0.922 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.850125 Hartree
+Iteration 20: Energy = -0.860799 Hartree
+Iteration 30: Energy = -0.865096 Hartree
+Iteration 40: Energy = -0.855540 Hartree
+
+Optimization completed in 43 iterations.
+Final energy: -0.859862 Hartree
+VQE Energy at 0.922 Å: -0.859862 Ha
+
+--- Point 7/10: Distance = 1.067 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.844186 Hartree
+Iteration 20: Energy = -0.848848 Hartree
+Iteration 30: Energy = -0.848050 Hartree
+Iteration 40: Energy = -0.852355 Hartree
+
+Optimization completed in 42 iterations.
+Final energy: -0.864054 Hartree
+VQE Energy at 1.067 Å: -0.864054 Ha
+
+--- Point 8/10: Distance = 1.211 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.842984 Hartree
+Iteration 20: Energy = -0.843381 Hartree
+Iteration 30: Energy = -0.843782 Hartree
+Iteration 40: Energy = -0.830566 Hartree
+
+Optimization completed in 43 iterations.
+Final energy: -0.856730 Hartree
+VQE Energy at 1.211 Å: -0.856730 Ha
+
+--- Point 9/10: Distance = 1.356 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.830816 Hartree
+Iteration 20: Energy = -0.828090 Hartree
+Iteration 30: Energy = -0.823069 Hartree
+Iteration 40: Energy = -0.826222 Hartree
+
+Optimization completed in 46 iterations.
+Final energy: -0.836342 Hartree
+VQE Energy at 1.356 Å: -0.836342 Ha
+
+--- Point 10/10: Distance = 1.500 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: COBYLA, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+Iteration 10: Energy = -0.798138 Hartree
+Iteration 20: Energy = -0.807537 Hartree
+Iteration 30: Energy = -0.812762 Hartree
+
+Optimization completed in 39 iterations.
+Final energy: -0.818009 Hartree
+VQE Energy at 1.500 Å: -0.818009 Ha
+
+Optimal bond distance: 1.067 Å with energy -0.864054 Hartree
+Geometry optimization results saved to bond_scan.dat

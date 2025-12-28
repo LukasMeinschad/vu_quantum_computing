@@ -1,12 +1,16 @@
-from pyscf import ao2mo, mcscf
+from pyscf import ao2mo, gto, mcscf, scf
+from qiskit.quantum_info import SparsePauliOp
 import numpy as np
 
-def get_full_space_hamiltonian(mf):
-    """  
-    Gets the full-space fermionic Hamiltonian from a converged SCF object.
+import modules.mapping as mapping
+
+
+def get_hf_hamiltonian(mf):
+    """
+    Gets the Hartree-Fock fermionic Hamiltonian from a converged SCF object.
 
     Args:
-        mf: Converged SCF object.
+        mf: Converged SCF object; mf = mean_field
 
     Returns:
         ecore: Core energy (nuclear repulsion).
@@ -14,61 +18,245 @@ def get_full_space_hamiltonian(mf):
         h2e: Two-electron integrals.
         E_reference
     """
-    # Nuclear repulsion energy
     ecore = mf.energy_nuc()
 
-    # Get molecular orbitals and coefficients
     mo_coeff = mf.mo_coeff
     nmo = mo_coeff.shape[1]
 
-    # Transform one-electron integrals 
+    # Transform one-electron integrals
     h1e = mo_coeff.T @ mf.get_hcore() @ mo_coeff
 
     # Transform two electron integrals
-    eri_mo = ao2mo.kernel(mf.mol, mo_coeff, aosym="s1") #TODO figure out what this symmetry means here
+    eri_mo = ao2mo.kernel(
+        mf.mol, mo_coeff, aosym="s1"
+    )  # TODO figure out what this symmetry means here
     h2e = eri_mo.reshape((nmo, nmo, nmo, nmo))
 
     return ecore, h1e, h2e
 
-def get_fermionic_hamiltonian_active_space(mf,ncas,nelecas):
-    """ 
-    Construct the fermionic Hamiltonian using CASCI for active space calculation 
+
+def get_casci_hamiltonian(mf, ncas, nelecas):
+    """
+    Construct the fermionic Hamiltonian using CASCI for active space calculation
     Args:
-        mf: PySCF RHF object after SCF calculation converged 
-        ncas (int): Number of orbitals in complete active space 
-        nelecas: Tuple(n_alpha, n_beta) Number of electrons in active space 
+        mf: PySCF RHF object after SCF calculation converged; mf = mean_field
+        ncas (int): Number of orbitals in complete active space
+        nelecas: Tuple(n_alpha, n_beta) Number of electrons in active space
 
     Returns:
-        h1e: One-electron integrals for active space 
-        h2e: Two-electron integrals for active space 
+        h1e: One-electron integrals for active space
+        h2e: Two-electron integrals for active space
         ecore: Core energy including frozen orbitals
     """
     mx = mcscf.CASCI(mf, ncas=ncas, nelecas=nelecas)
-
-    # Run CASCI calculation 
     mx.kernel()
 
-    # Extract effective Hamiltonian 
     h1e, ecore = mx.get_h1eff()
     h2e = ao2mo.restore(1, mx.get_h2eff(), mx.ncas)
-    return h1e, h2e, ecore
 
+    return ecore, h1e, h2e
+
+
+def run_scf_calculation(mol, method="RHF", verbose=False):
+    """
+    Run SCF calculation on the given molecule object.
+
+    Args:
+        mol: PySCF molecule object.
+        method (str): SCF method to use ("RHF", "UHF", or "ROHF").
+        verbose (bool): Whether to print SCF details.
+
+    Returns:
+        mf: Converged SCF object; mf = mean_field
+    """
+    if method == "RHF":
+        mf = scf.RHF(mol)
+    elif method == "UHF":
+        mf = scf.UHF(mol)
+    elif method == "ROHF":
+        mf = scf.ROHF(mol)
+    else:
+        raise ValueError(f"Unsupported SCF method: {method}")
+
+    mf.verbose = 4 if verbose else 0
+    mf.kernel()
+
+    if not mf.converged:
+        raise RuntimeError("SCF did not converge!")
+
+    return mf
+
+
+def ham_terms_diatomic(x: float):
+    """
+    Build Hamiltonian terms for a diatomic molecule based on bond distance x (in Angstrom)
+
+    Args:
+        x (float): Bond distance in Angstrom
+
+    Returns:
+        h1e: One-electron integrals
+        h2e: Two-electron integrals
+        ecore: Core energy
+    """
+    distance = x
+    a = distance / 2
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        atom=[["H", (0, 0, -a)], ["H", (0, 0, a)]],
+        basis="sto-6g",
+        spin=0,
+        charge=0,
+        symmetry=True,
+    )
+
+    mf = scf.RHF(mol)
+    mf.kernel()
+
+    if not mf.converged:
+        raise ValueError("SCF calculation did not converge.")
+
+    return get_casci_hamiltonian(mf, ncas=2, nelecas=(1, 1))
+
+
+def build_hamiltonian_with_geometry(distx: float) -> SparsePauliOp:
+    """
+    Build qubit Hamiltonian for H2 molecule at given bond distance
+
+    Args:
+        distx (float): Bond distance in Angstrom
+    Returns:
+        H_qubit: Qubit Hamiltonian as SparsePauliOp
+    """
+    ecore, h1e, h2e = ham_terms_diatomic(distx)
+
+    ncas, _ = h1e.shape
+    C, D = mapping.creators_destructors(ncas * 2, mapping="jordan_wigner")
+    Exc = []
+    for p in range(ncas):
+        Excp = [C[p] @ D[p] + C[ncas + p] @ D[ncas + p]]
+        for r in range(p + 1, ncas):
+            Excp.append(
+                C[p] @ D[r]
+                + C[ncas + p] @ D[ncas + r]
+                + C[r] @ D[p]
+                + C[ncas + r] @ D[ncas + p]
+            )
+        Exc.append(Excp)
+    # Low-rank decomposition of h2e
+    Lop, ng = mapping.cholesky(h2e, eps=1e-5)
+    t1e = h1e - 0.5 * np.einsum("pxxr->pr", h2e)
+    H = ecore * mapping.identity(ncas * 2)
+    for p in range(ncas):
+        for r in range(p, ncas):
+            H += t1e[p, r] * Exc[p][r - p]
+    # Add two body terms
+    for g in range(ng):
+        Lg = 0 * mapping.identity(ncas * 2)
+        for p in range(ncas):
+            for r in range(p, ncas):
+                Lg += Lop[p, r, g] * Exc[p][r - p]
+        H += 0.5 * (Lg @ Lg)
+    return H.chop().simplify()
+
+
+def build_hamiltonian(
+    ecore: float, h1e: np.ndarray, h2e: np.ndarray, mapping_method="jordan_wigner"
+) -> SparsePauliOp:
+    """
+    Buils the qubit Hamiltonian from fermionic integrals
+
+    Fermionic Hamiltonian is:
+    H = E_core + sum_{pq} h1e_{pq} a_p^† a_q + 0.5 sum_{pqrs} h2e_{pqrs} a_p^† a_q^† a_r a_s
+    """
+    ncas, _ = h1e.shape
+
+    # Get creation and annihilation operators
+    # 2 * ncas to account for spin-orbitals
+    C, D = mapping.creators_destructors(ncas * 2, mapping=mapping_method)
+
+    # Build excitation operators c_p^† c_r for all p,r
+    # Exc[p][r-p] represents excitation from orbital r to orbital p
+    # Do this for both spins
+    Exc = []
+    for p in range(ncas):
+        Excp = [
+            C[p] @ D[p] + C[ncas + p] @ D[ncas + p]
+        ]  # Number of operators if p == r
+        for r in range(p + 1, ncas):
+            Excp.append(
+                C[p] @ D[r]  # \alpha spin p -> r
+                + C[ncas + p] @ D[ncas + r]  # \beta spin p -> r
+                + C[r] @ D[p]  # \alpha spin r -> p
+                + C[ncas + r] @ D[ncas + p]  # \beta spin r -> p
+            )
+        Exc.append(Excp)
+
+    # Low-rank decomposition of h2e
+    Lop, ng = mapping.cholesky(h2e, eps=1e-5)
+
+    # t1e = h1e - 1/2 * Coloumb integral
+    t1e = h1e - 0.5 * np.einsum("pxxr->pr", h2e)
+
+    # Initialize Hamiltonian with core energy
+    H = ecore * mapping.identity(ncas * 2)
+
+    # Add one-body-terms
+    for p in range(ncas):
+        for r in range(p, ncas):
+            H += t1e[p, r] * Exc[p][r - p]
+
+    # Add two body terms
+    for g in range(ng):
+        Lg = 0 * mapping.identity(ncas * 2)
+        for p in range(ncas):
+            for r in range(p, ncas):
+                Lg += Lop[p, r, g] * Exc[p][r - p]
+        # Square operator
+        H += 0.5 * (Lg @ Lg)
+
+    # Combine like terms and remove small coefficients
+    return H.chop().simplify()
 
 
 # Logging functions
 
-def write_hamiltonian_out(ecore, h1e, h2e, filepath):
-    """   
-    Helper function to write Hamiltonian components to output file.
+
+def write_hamiltonian_out(ecore, h1e, h2e, filepath, label="Hamiltonian"):
+    """Helper function to write Hamiltonian components to output file.
+
+    Args:
+        ecore: Core (nuclear repulsion / frozen-core) energy in Hartree.
+        h1e: One-electron integrals in Hartree.
+        h2e: Two-electron integrals in Hartree.
+        filepath: Output file path.
+        label: Short description of the Hamiltonian (e.g. "Hartree-Fock" or "CASCI active space").
     """
-    with open(filepath, 'a') as f:
-        f.write("=== Hamiltonian Components ===\n")
-        f.write(f"Core Energy (Nuclear Repulsion): {ecore}\n")
-        f.write("One-Electron Integrals (h1e):\n")
+    with open(filepath, "a") as f:
+        f.write(f"=== {label} Hamiltonian Components ===\n")
+        f.write(f"Core Energy (Nuclear Repulsion): {ecore} Hartree\n")
+        f.write("One-Electron Integrals (h1e) in Hartree:\n")
         np.savetxt(f, h1e, fmt="%.6f")
-        f.write("Two-Electron Integrals (h2e):\n")
+        f.write("Two-Electron Integrals (h2e) in Hartree:\n")
         h2e_flat = h2e.reshape(h2e.shape[0], -1)
         np.savetxt(f, h2e_flat, fmt="%.6f")
         f.write("\n")
 
-    
+
+def write_qubit_hamiltonian_out(H, out_file):
+    """
+    Writes the qubit Hamiltonian to the output file.
+
+    Args:
+        H: Qubit Hamiltonian as SparsePauliOp.
+        out_file (str): Path to the output file.
+    """
+    with open(out_file, "a") as f:
+        f.write("=== Qubit Hamiltonian ===\n")
+        f.write(f"Number of qubits: {H.num_qubits}\n")
+        f.write(f"Number of Pauli terms: {len(H.paulis)}\n")
+        f.write("Qubit Hamiltonian terms:\n")
+        for pauli, coeff in zip(H.paulis, H.coeffs):
+            f.write(f"{coeff.real:.6f} * {pauli}\n")
+        f.write("\n")
