@@ -117,6 +117,126 @@ def vqe_single_point(
 
     return result, energy_history
 
+def vqe_single_point_optimized(
+        ansatz,
+        H,
+        backend,
+        out_file,
+        initial_params=None,
+        stage1_method = "COBYLA",
+        stage1_options = {"maxiter": 100, "rhobeg": 0.1},
+        stage2_method = "Powell",
+        stage2_options = {"maxiter": 50, "ftol": 1e-5, "xtol":1e-5}
+    ):
+    """    
+    Optimized VQE single point function with a two stage optimization process
+
+    + Stage 1: COBYLA for rough optimization
+    + Stage 2: Powell for fine optimization
+
+    Args:
+        ansatz: Qiskit QuantumCircuit object representing the ansatz
+        H: Qubit Hamiltonian as SparsePauliOp
+        backend: Qiskit backend (simulator or real device)
+        out_file: Path to output file for logging results
+        initial_params: Initial parameter values for the ansatz
+        stage1_method (str): Optimization method for stage 1 (e.g., "COBYLA")
+        stage1_options (dict): Options for the optimizer in stage 1
+        stage2_method (str): Optimization method for stage 2 (e.g., "Powell")
+        stage2_options (dict): Options for the optimizer in stage 2
+    """
+    if initial_params is None:
+        initial_params = 2 * np.pi * np.random.rand(ansatz.num_parameters)
+
+    # Setup backend and estimator
+    if backend is None:
+        backend = AerSimulator()
+    elif isinstance(backend, AerSimulator):
+        backend_sim = backend
+    else:
+        # Real backend, create simulator
+        backend_sim = AerSimulator.from_backend(backend)
+
+    estimator = BackendEstimatorV2(backend=backend_sim)
+
+    # Transpile the ansatz for the backend
+    pm = generate_preset_pass_manager(
+        optimization_level=3, backend=backend
+    )  # Make Optimized Circuit, with longer transpile time
+    ansatz_isa = pm.run(ansatz)
+
+    # Track optimization progress
+    stage1_history = []
+    stage2_history = []
+    with open(out_file, "a") as f:
+        f.write("\n=== VQE Single Point Optimization (Two-Stage) ===\n")
+        f.write(f"Backend: {backend_sim.name}\n")
+        f.write(f"Stage 1 Method: {stage1_method}, Options: {stage1_options}\n")
+        f.write(f"Stage 2 Method: {stage2_method}, Options: {stage2_options}\n")
+
+    # ======== Stage 1: Rough Optimization ========
+    def callback_stage1(xk):
+        energy = cost_func(xk, ansatz_isa, H, BackendEstimatorV2(backend=backend_sim))
+        stage1_history.append(energy)
+        if len(stage1_history) % 10 == 0:
+            with open(out_file, "a") as f:
+                f.write(
+                    f"Stage 1 - Iteration {len(stage1_history)}: Energy = {energy:.6f} Hartree\n"
+                )
+    result_stage1 = minimize(
+        fun=cost_func,
+        x0=initial_params,
+        args=(ansatz_isa, H, estimator),
+        method=stage1_method,
+        options=stage1_options,
+        callback=callback_stage1,
+    )
+
+    print(f"Stage 1 completed in {len(stage1_history)} iterations. Energy: {result_stage1.fun:.6f} Ha")
+
+    # ======== Stage 2: Fine Optimization ========
+    def callback_stage2(xk):
+        energy = cost_func(xk, ansatz_isa, H, BackendEstimatorV2(backend=backend_sim))
+        stage2_history.append(energy)
+        if len(stage2_history) % 10 == 0:
+            with open(out_file, "a") as f:
+                f.write(
+                    f"Stage 2 - Iteration {len(stage2_history)}: Energy = {energy:.6f} Hartree\n"
+                )
+    result_stage2 = minimize(
+        fun=cost_func,
+        x0=result_stage1.x,
+        args=(ansatz_isa, H, estimator),
+        method=stage2_method,
+        options=stage2_options,
+        callback=callback_stage2,
+    )
+
+    with open(out_file, "a") as f:
+        f.write(f"\nOptimization completed.\n")
+        f.write(f"Final energy: {result_stage2.fun:.6f} Hartree\n")
+    
+    print(f"Stage 2 completed in {len(stage2_history)} iterations. Energy: {result_stage2.fun:.6f} Ha")
+    # Combine histories
+
+    total_history = stage1_history + stage2_history
+    energy_improvement = total_history[0] - total_history[-1]
+    
+    plt.figure(figsize=(8, 5))
+    # Plot stage 1 history
+    plt.plot(range(1, len(stage1_history) + 1), stage1_history, marker="o", label="Stage 1 (COBYLA)")
+    # Plot stage 2 history with offset
+    offset = len(stage1_history)
+    plt.plot(range(offset + 1, offset + len(stage2_history) + 1), stage2_history, marker="o", label="Stage 2 (Powell)")
+    plt.xlabel("Iteration")
+    plt.ylabel("Energy / Hartree")
+    plt.title(f"VQE Energy Convergence (Total Improvement: {energy_improvement:.6f} Ha)")
+    plt.legend()
+    plt.grid()
+    plt.savefig("images/vqe_convergence_two_stage.png", dpi=300, bbox_inches="tight")
+    plt.close() 
+
+    return result_stage2, total_history
 
 def vqe_for_geometry(
     distance,
@@ -256,3 +376,241 @@ def bond_scan(
         f.write("Geometry optimization results saved to bond_scan.dat\n")
 
     return distances, energies, optimal_distance, optimal_energy
+
+
+"""" 
+Since this bond scan function is not really an optimization we compute the 
+gradients according to our hamiltonian for our H2 Molecule
+
+Since i don't know how to compute those analytically :) i will use finite differences
+"""
+def finite_diff_hamiltonian(distance, delta=1e-5):
+    """  
+    Helper function to use central difference to the gradient with respect to the geometry as a parameter
+    """
+    H_plus = hamiltonian.build_hamiltonian_with_geometry(distance + delta)
+    H_minus = hamiltonian.build_hamiltonian_with_geometry(distance - delta)
+    dH_ddistance = (H_plus - H_minus) / (2 * delta)
+    return dH_ddistance
+
+def grad_geometry(params, distance, ansatz, backend, estimator=None):
+    """    
+    Calculate nuclear gradient using finite differences
+    
+    Args:
+        params: Parameter values for the ansatz circuit
+        distance: Bond distance in Angstrom
+        ansatz: Qiskit QuantumCircuit object representing the ansatz
+        backend: Qiskit backend (simulator or real device)
+        estimator: Qiskit Estimator primitive object
+    """
+    if estimator is None:
+        if backend is None:
+            backend = AerSimulator()
+        elif isinstance(backend, AerSimulator):
+            backend_sim = backend
+        else:
+            # Real backend, create simulator
+            backend_sim = AerSimulator.from_backend(backend)
+
+        estimator = BackendEstimatorV2(backend=backend_sim)
+
+    grad_H = finite_diff_hamiltonian(distance)
+    # Evaluate the expectation value of the gradient Hamiltonian
+    pub = (ansatz, [grad_H], [params])
+    result = estimator.run(pubs=[pub]).result()
+    gradient = result[0].data.evs[0]
+
+    return gradient
+
+def line_search_backtracking(
+        params, distance, grad, ansatz, backend, estimator, initial_step=0.1, alpha=1e-4, beta = 0.7, max_iter=20):
+    """   
+    Implementation of a simple backtracking line search to find the optimal step size and speed up convergence
+
+    Algorithm:
+        1. Start with an initial step size 
+        2. While the Armijo condition is not satisfied and max iterations not reached:
+            a. Reduce the step size by multiplying with beta
+            b. Check the Armijo condition:
+                f(x + step * d) <= f(x) + alpha * step * grad^T * d
+    Args:
+        params: Current parameter values for the ansatz circuit
+        distance: Current bond distance in Angstrom
+        grad: Gradient value at current parameters
+        ansatz: Qiskit QuantumCircuit object representing the ansatz
+        backend: Qiskit backend (simulator or real device)
+        estimator: Qiskit Estimator primitive object
+        initial_step (float): Initial step size for line search
+        alpha (float): Parameter for Armijo condition
+        beta (float): Step size reduction factor
+        max_iter (int): Maximum number of iterations for line search
+    """
+    H_current = hamiltonian.build_hamiltonian_with_geometry(distance)
+    energy_current = cost_func(params, ansatz, H_current, estimator)
+
+    step = initial_step
+
+    for _ in range(max_iter):
+        # Try new distance with current step size
+        distance_new = distance - step * grad 
+
+        # Ensure distance stays positive 
+        if distance_new <= 0.1:
+            step *= beta
+            continue
+        H_new = hamiltonian.build_hamiltonian_with_geometry(distance_new)
+        energy_new = cost_func(params, ansatz, H_new, estimator)
+
+        # Armijo conditon: sufficient decrease
+        if energy_new <= energy_current - alpha * step * grad**2:
+            return step  # Found suitable step size
+        else:
+            # Reduce step size
+            step *= beta
+    return step  # Return the last step size if max iterations reached
+
+
+def geometry_optimization_sim(
+        ansatz,
+        backend,
+        out_file,
+        initial_distance=0.74,
+        initial_params=None,
+        max_iterations=36,
+        convergence_threshold=1e-4,
+        method="COBYLA",
+        step_method = "backtracking",
+        options={"maxiter": 100},
+    ):
+    """
+    Simultaneous optimization of circuit parameters and bond distances for H2 molecule
+
+    Args:
+        ansatz: Qiskit QuantumCircuit object representing the ansatz
+        backend: Qiskit backend (simulator or real device)
+        out_file: Path to output file for logging results
+        initial_distance (float): Initial bond distance in Angstrom
+        initial_params: Initial parameter values for the ansatz
+        max_iterations (int): Maximum number of optimization iterations
+        convergence_threshold (float): Convergence threshold for energy change
+        method (str): Optimization method (e.g., "COBYLA", "Nelder-Mead", etc.)
+        options (dict): Options for the optimizer
+    """
+    if initial_params is None:
+        initial_params = 2 * np.pi * np.random.rand(ansatz.num_parameters)
+    
+    current_params = initial_params.copy()
+    current_distance = initial_distance
+
+    # Setup backend and estimator
+    if backend is None:
+        backend = AerSimulator()
+    elif isinstance(backend, AerSimulator):
+        backend_sim = backend
+    else:
+        backend_sim = AerSimulator.from_backend(backend)
+    
+    estimator = BackendEstimatorV2(backend=backend_sim)
+
+    # Transpile the ansatz
+    pm = generate_preset_pass_manager(
+        optimization_level=3, backend=backend
+    )  # Make Optimized Circuit, with longer transpile time
+    ansatz_isa = pm.run(ansatz)
+
+    # Storage for results 
+    energies = []
+    distances = []
+    nuclear_gradients = []
+
+
+
+    with open(out_file, "a") as f:
+        f.write("\n=== Simultaneous Geometry and Parameter Optimization ===\n")
+        f.write(f"Initial bond distance: {initial_distance:.6f} Å\n")
+        f.write(f"Max iterations: {max_iterations}\n")
+        f.write(f"Convergence threshold: {convergence_threshold} Hartree\n")
+        f.write(f"Optimization method: {method}\n")
+
+    for step in range(max_iterations):
+        # Build hamiltonian for current geometry
+        H_current = hamiltonian.build_hamiltonian_with_geometry(current_distance)
+
+        # Minimize circuit parameters for current geometry
+        result = minimize(
+            fun=cost_func,
+            x0=current_params,
+            args=(ansatz_isa, H_current, estimator),
+            method=method,
+            options=options,
+        )
+        current_params = result.x
+        current_energy = result.fun
+
+        # Compute nuclear gradient
+        grad_nuclear = grad_geometry(
+            current_params, current_distance, ansatz_isa, backend, estimator
+        )
+
+        # Store results
+        energies.append(current_energy)
+        distances.append(current_distance)
+        nuclear_gradients.append(grad_nuclear)
+
+        # Log progress
+        if step % 4 == 0:
+            with open(out_file, "a") as f:
+                f.write(f"Step {step}: E = {current_energy:.8f} Ha,")
+                f.write(f" bond length = {current_distance:.6f} Å,")
+                f.write(f" nuclear gradient = {grad_nuclear:.6f} Ha/Å\n")
+        
+        # Check the convergence
+        if abs(grad_nuclear) < convergence_threshold:
+            with open(out_file, "a") as f:
+                f.write(f"Converged at step {step} with energy {current_energy:.8f} Ha\n")
+            break
+        # Update geometry based in gradient
+        
+
+        # THOMAS HOFER WOULD BE PROUD 
+
+        if step_method == "backtracking":
+            step_size = line_search_backtracking(
+                current_params,
+                current_distance,
+                grad_nuclear,
+                ansatz_isa,
+                backend,
+                estimator,
+                initial_step=0.1,
+                alpha=1e-4,
+                beta=0.7,
+                max_iter=20
+            )
+            current_distance -= step_size * grad_nuclear
+        else:
+            raise ValueError(f"Unknown step method: {step_method}")
+
+    # Final logging
+    with open(out_file, "a") as f:
+        f.write(f"\nOptimization completed in {step+1} steps.\n")
+        f.write(f"Final bond distance: {current_distance:.6f} Å\n")
+        f.write(f"Final energy: {current_energy:.8f} Ha\n")
+    
+    # Plot results
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 10))
+    ax1.plot(range(1, len(energies) + 1), energies, marker="o")
+    ax1.set_xlabel("Iteration")
+    ax1.set_ylabel("Energy / Hartree")
+    ax1.set_title("Energy Convergence")
+    ax1.grid()
+    ax2.plot(range(1, len(distances) + 1), distances, marker="o", color="orange")
+    ax2.set_xlabel("Iteration")
+    ax2.set_ylabel("Bond Distance / Å")
+    ax2.set_title("Bond Distance Convergence")
+    ax2.grid()
+    plt.savefig("images/geometry_optimization_convergence.png", dpi=300, bbox_inches="tight")
+    plt.close()
+    return energies, distances, current_params, distances[-1]
+    
