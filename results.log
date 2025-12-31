@@ -11,22 +11,22 @@ Number of basis functions: 2
 
 === SCF Energy Results ===
 Nucleic Repulsion Energy: 0.7151043390810812 Hartree
-Electronic Energy: -1.8318636464775067 Hartree
-Total energy: -1.1167593073964255 Hartree
+Electronic Energy: -1.8318636464775064 Hartree
+Total energy: -1.1167593073964253 Hartree
 
 === Hartree-Fock Hamiltonian Components ===
 Core Energy (Nuclear Repulsion): 0.7151043390810812 Hartree
 One-Electron Integrals (h1e) in Hartree:
--1.253310 0.000000
+-1.253310 -0.000000
 0.000000 -0.475069
 Two-Electron Integrals (h2e) in Hartree:
-0.674756 0.000000 0.000000 0.663711 0.000000 0.181210 0.181210 0.000000
-0.000000 0.181210 0.181210 0.000000 0.663711 0.000000 0.000000 0.697652
+0.674756 0.000000 0.000000 0.663711 -0.000000 0.181210 0.181210 -0.000000
+0.000000 0.181210 0.181210 0.000000 0.663711 0.000000 -0.000000 0.697652
 
 === CASCI Hamiltonian Components ===
 Core Energy (Nuclear Repulsion): 0.7151043390810812 Hartree
 One-Electron Integrals (h1e) in Hartree:
--1.253310 0.000000
+-1.253310 -0.000000
 0.000000 -0.475069
 Two-Electron Integrals (h2e) in Hartree:
 0.674756 0.000000 0.000000 0.663711 -0.000000 0.181210 0.181210 0.000000
@@ -37,13 +37,13 @@ Two-Electron Integrals (h2e) in Hartree:
 
 -- Jordan-Wigner Mapping --
 Jordan-Wigner Hamiltonian has 15 Pauli terms
-Time taken for Jordan-Wigner: 0.0065 seconds
+Time taken for Jordan-Wigner: 0.0028 seconds
 
 -- Bravyi-Kitaev Mapping --
 Bravyi-Kitaev Hamiltonian has 15 Pauli terms
-Time taken for Bravyi-Kitaev: 0.0041 seconds
+Time taken for Bravyi-Kitaev: 0.0023 seconds
 
-Speedup (BK vs JW): 1.57x
+Speedup (BK vs JW): 1.22x
 Term Reduction (BK vs JW): 1.00x
 
 === Qubit Hamiltonian ===
@@ -73,61 +73,52 @@ Number of parameters: 24
 Depth: 17
 
 Circuit:
-global phase: (-0.5)*θ[1] - 0.5*θ[4] - 0.5*θ[7] - 0.5*θ[15] - 0.5*θ[18] - 0.5*θ[21] - 0.5*θ[22]
-     ┌────────────┐┌───────────┐ ░                           ░   ┌─────────┐   ░                     »
-q_0: ┤ R(π/4,π/2) ├┤ R(θ[0],0) ├─░────────■──────────────────░───┤ P(θ[4]) ├───░────────■────────────»
-     ├────────────┤└┬─────────┬┘ ░ ┌───┐┌─┴─┐┌───┐           ░ ┌─┴─────────┴─┐ ░ ┌───┐┌─┴─┐┌───┐     »
-q_1: ┤ R(π/4,π/2) ├─┤ P(θ[1]) ├──░─┤ H ├┤ X ├┤ H ├──■────────░─┤ R(θ[5],π/2) ├─░─┤ H ├┤ X ├┤ H ├──■──»
-     ├────────────┤┌┴─────────┴┐ ░ └───┘└───┘├───┤┌─┴─┐┌───┐ ░ └┬───────────┬┘ ░ └───┘└───┘├───┤┌─┴─┐»
-q_2: ┤ R(π/4,π/2) ├┤ R(θ[2],0) ├─░────────■──┤ H ├┤ X ├┤ H ├─░──┤ R(θ[6],0) ├──░────────■──┤ H ├┤ X ├»
-     ├────────────┤├───────────┤ ░ ┌───┐┌─┴─┐├───┤└───┘└───┘ ░  └┬─────────┬┘  ░ ┌───┐┌─┴─┐├───┤└───┘»
-q_3: ┤ R(π/4,π/2) ├┤ R(θ[3],0) ├─░─┤ H ├┤ X ├┤ H ├───────────░───┤ P(θ[7]) ├───░─┤ H ├┤ X ├┤ H ├─────»
-     └────────────┘└───────────┘ ░ └───┘└───┘└───┘           ░   └─────────┘   ░ └───┘└───┘└───┘     »
-«           ░  ┌───────────┐   ░                           ░  ┌────────────┐  ░                     »
-«q_0: ──────░──┤ R(θ[8],0) ├───░────────■──────────────────░──┤ R(θ[12],0) ├──░────────■────────────»
-«           ░  ├───────────┤   ░ ┌───┐┌─┴─┐┌───┐           ░ ┌┴────────────┴┐ ░ ┌───┐┌─┴─┐┌───┐     »
-«q_1: ──────░──┤ R(θ[9],0) ├───░─┤ H ├┤ X ├┤ H ├──■────────░─┤ R(θ[13],π/2) ├─░─┤ H ├┤ X ├┤ H ├──■──»
-«     ┌───┐ ░ ┌┴───────────┴─┐ ░ └───┘└───┘├───┤┌─┴─┐┌───┐ ░ └┬────────────┬┘ ░ └───┘└───┘├───┤┌─┴─┐»
-«q_2: ┤ H ├─░─┤ R(θ[10],π/2) ├─░────────■──┤ H ├┤ X ├┤ H ├─░──┤ R(θ[14],0) ├──░────────■──┤ H ├┤ X ├»
-«     └───┘ ░ └┬────────────┬┘ ░ ┌───┐┌─┴─┐├───┤└───┘└───┘ ░  └┬──────────┬┘  ░ ┌───┐┌─┴─┐├───┤└───┘»
-«q_3: ──────░──┤ R(θ[11],0) ├──░─┤ H ├┤ X ├┤ H ├───────────░───┤ P(θ[15]) ├───░─┤ H ├┤ X ├┤ H ├─────»
-«           ░  └────────────┘  ░ └───┘└───┘└───┘           ░   └──────────┘   ░ └───┘└───┘└───┘     »
-«           ░  ┌────────────┐  ░                           ░ ┌──────────────┐
-«q_0: ──────░──┤ R(θ[16],0) ├──░────────■──────────────────░─┤ R(θ[20],π/2) ├
-«           ░ ┌┴────────────┴┐ ░ ┌───┐┌─┴─┐┌───┐           ░ └─┬──────────┬─┘
-«q_1: ──────░─┤ R(θ[17],π/2) ├─░─┤ H ├┤ X ├┤ H ├──■────────░───┤ P(θ[21]) ├──
-«     ┌───┐ ░ └─┬──────────┬─┘ ░ └───┘└───┘├───┤┌─┴─┐┌───┐ ░   ├──────────┤  
-«q_2: ┤ H ├─░───┤ P(θ[18]) ├───░────────■──┤ H ├┤ X ├┤ H ├─░───┤ P(θ[22]) ├──
-«     └───┘ ░  ┌┴──────────┴┐  ░ ┌───┐┌─┴─┐├───┤└───┘└───┘ ░  ┌┴──────────┴┐ 
-«q_3: ──────░──┤ R(θ[19],0) ├──░─┤ H ├┤ X ├┤ H ├───────────░──┤ R(θ[23],0) ├─
-«           ░  └────────────┘  ░ └───┘└───┘└───┘           ░  └────────────┘ 
-
-=== VQE Single Point Optimization ===
-Backend: aer_simulator
-Method: COBYLA, Options: {'maxiter': 100}
-Initial parameters shape: (24,)
-Number of Ansatz parameters: 24
-Iteration 10: Energy = -0.939019 Hartree
-Iteration 20: Energy = -1.150118 Hartree
-Iteration 30: Energy = -1.216362 Hartree
-Iteration 40: Energy = -1.240083 Hartree
-
-Optimization completed in 43 iterations.
-Final energy: -1.251119 Hartree
-
-=== VQE Single Point Optimization (Two-Stage) ===
-Backend: aer_simulator
-Stage 1 Method: COBYLA, Options: {'maxiter': 100, 'rhobeg': 0.1}
-Stage 2 Method: Powell, Options: {'maxiter': 50, 'ftol': 1e-05, 'xtol': 1e-05}
-Stage 1 - Iteration 10: Energy = -0.689335 Hartree
-Stage 1 - Iteration 20: Energy = -0.788223 Hartree
-Stage 1 - Iteration 30: Energy = -0.847589 Hartree
-Stage 1 - Iteration 40: Energy = -0.918226 Hartree
-Stage 1 - Iteration 50: Energy = -0.914662 Hartree
-Stage 2 - Iteration 10: Energy = -1.292208 Hartree
-
-Optimization completed.
-Final energy: -1.295872 Hartree
+global phase: -θ[0]/2 - θ[10]/2 - θ[11]/2 - θ[15]/2 - θ[16]/2 - θ[19]/2 - θ[20]/2 - θ[21]/2 - θ[23]/2 - θ[2]/2 - θ[4]/2 - θ[7]/2
+     ┌────────────┐  ┌──────────┐  ░                           ░ »
+q_0: ┤ R(π/4,π/2) ├──┤ U1(θ[0]) ├──░────────■──────────────────░─»
+     ├────────────┤ ┌┴──────────┤  ░ ┌───┐┌─┴─┐┌───┐           ░ »
+q_1: ┤ R(π/4,π/2) ├─┤ R(θ[1],0) ├──░─┤ H ├┤ X ├┤ H ├──■────────░─»
+     ├────────────┤ └┬──────────┤  ░ └───┘└───┘├───┤┌─┴─┐┌───┐ ░ »
+q_2: ┤ R(π/4,π/2) ├──┤ U1(θ[2]) ├──░────────■──┤ H ├┤ X ├┤ H ├─░─»
+     ├────────────┤┌─┴──────────┴┐ ░ ┌───┐┌─┴─┐├───┤└───┘└───┘ ░ »
+q_3: ┤ R(π/4,π/2) ├┤ R(θ[3],π/2) ├─░─┤ H ├┤ X ├┤ H ├───────────░─»
+     └────────────┘└─────────────┘ ░ └───┘└───┘└───┘           ░ »
+«      ┌──────────┐ ░                           ░ ┌───────────┐ ░ »
+«q_0: ─┤ U1(θ[4]) ├─░────────■──────────────────░─┤ R(θ[8],0) ├─░─»
+«     ┌┴──────────┤ ░ ┌───┐┌─┴─┐┌───┐           ░ ├───────────┤ ░ »
+«q_1: ┤ R(θ[5],0) ├─░─┤ H ├┤ X ├┤ H ├──■────────░─┤ R(θ[9],0) ├─░─»
+«     ├───────────┤ ░ └───┘└───┘├───┤┌─┴─┐┌───┐ ░ ├───────────┤ ░ »
+«q_2: ┤ R(θ[6],0) ├─░────────■──┤ H ├┤ X ├┤ H ├─░─┤ U1(θ[10]) ├─░─»
+«     └┬──────────┤ ░ ┌───┐┌─┴─┐├───┤└───┘└───┘ ░ ├───────────┤ ░ »
+«q_3: ─┤ U1(θ[7]) ├─░─┤ H ├┤ X ├┤ H ├───────────░─┤ U1(θ[11]) ├─░─»
+«      └──────────┘ ░ └───┘└───┘└───┘           ░ └───────────┘ ░ »
+«                               ░  ┌────────────┐  ░           »
+«q_0: ───────■──────────────────░──┤ R(θ[12],0) ├──░────────■──»
+«     ┌───┐┌─┴─┐┌───┐           ░  ├────────────┤  ░ ┌───┐┌─┴─┐»
+«q_1: ┤ H ├┤ X ├┤ H ├──■────────░──┤ R(θ[13],0) ├──░─┤ H ├┤ X ├»
+«     └───┘└───┘├───┤┌─┴─┐┌───┐ ░ ┌┴────────────┴┐ ░ └───┘└───┘»
+«q_2: ───────■──┤ H ├┤ X ├┤ H ├─░─┤ R(θ[14],π/2) ├─░────────■──»
+«     ┌───┐┌─┴─┐├───┤└───┘└───┘ ░ └┬───────────┬─┘ ░ ┌───┐┌─┴─┐»
+«q_3: ┤ H ├┤ X ├┤ H ├───────────░──┤ U1(θ[15]) ├───░─┤ H ├┤ X ├»
+«     └───┘└───┘└───┘           ░  └───────────┘   ░ └───┘└───┘»
+«                     ░  ┌───────────┐   ░                     »
+«q_0: ────────────────░──┤ U1(θ[16]) ├───░────────■────────────»
+«     ┌───┐           ░  ├───────────┴┐  ░ ┌───┐┌─┴─┐┌───┐     »
+«q_1: ┤ H ├──■────────░──┤ R(θ[17],0) ├──░─┤ H ├┤ X ├┤ H ├──■──»
+«     ├───┤┌─┴─┐┌───┐ ░ ┌┴────────────┴┐ ░ └───┘└───┘├───┤┌─┴─┐»
+«q_2: ┤ H ├┤ X ├┤ H ├─░─┤ R(θ[18],π/2) ├─░────────■──┤ H ├┤ X ├»
+«     ├───┤└───┘└───┘ ░ └┬───────────┬─┘ ░ ┌───┐┌─┴─┐├───┤└───┘»
+«q_3: ┤ H ├───────────░──┤ U1(θ[19]) ├───░─┤ H ├┤ X ├┤ H ├─────»
+«     └───┘           ░  └───────────┘   ░ └───┘└───┘└───┘     »
+«           ░  ┌───────────┐  
+«q_0: ──────░──┤ U1(θ[20]) ├──
+«           ░  ├───────────┤  
+«q_1: ──────░──┤ U1(θ[21]) ├──
+«     ┌───┐ ░ ┌┴───────────┴─┐
+«q_2: ┤ H ├─░─┤ R(θ[22],π/2) ├
+«     └───┘ ░ └┬───────────┬─┘
+«q_3: ──────░──┤ U1(θ[23]) ├──
+«           ░  └───────────┘  
 
 === Bond Scan ===
 Scanning 10 points from 0.2 Å to 1.5 Å
@@ -136,45 +127,121 @@ Scanning 10 points from 0.2 Å to 1.5 Å
 
 === VQE Single Point Optimization ===
 Backend: aer_simulator
-Method: COBYLA, Options: {'maxiter': 100}
+Method: Powell, Options: {'maxiter': 100}
 Initial parameters shape: (12,)
 Number of Ansatz parameters: 12
-Iteration 10: Energy = 1.215172 Hartree
-Iteration 20: Energy = 1.184603 Hartree
-Iteration 30: Energy = 1.164361 Hartree
-Iteration 40: Energy = 1.181724 Hartree
 
-Optimization completed in 49 iterations.
-Final energy: 1.160579 Hartree
-VQE Energy at 0.200 Å: 1.160579 Ha
+Optimization completed in 7 iterations.
+Final energy: 0.225561 Hartree
+VQE Energy at 0.200 Å: 0.225561 Ha
 
 --- Point 2/10: Distance = 0.344 Å ---
 
 === VQE Single Point Optimization ===
 Backend: aer_simulator
-Method: COBYLA, Options: {'maxiter': 100}
+Method: Powell, Options: {'maxiter': 100}
 Initial parameters shape: (12,)
 Number of Ansatz parameters: 12
-Iteration 10: Energy = 0.077007 Hartree
-Iteration 20: Energy = 0.086262 Hartree
-Iteration 30: Energy = 0.074072 Hartree
-Iteration 40: Energy = 0.080872 Hartree
 
-Optimization completed in 47 iterations.
-Final energy: 0.062175 Hartree
-VQE Energy at 0.344 Å: 0.062175 Ha
+Optimization completed in 5 iterations.
+Final energy: -0.773949 Hartree
+VQE Energy at 0.344 Å: -0.773949 Ha
 
 --- Point 3/10: Distance = 0.489 Å ---
 
 === VQE Single Point Optimization ===
 Backend: aer_simulator
-Method: COBYLA, Options: {'maxiter': 100}
+Method: Powell, Options: {'maxiter': 100}
 Initial parameters shape: (12,)
 Number of Ansatz parameters: 12
-Iteration 10: Energy = -0.315116 Hartree
-Iteration 20: Energy = -0.309032 Hartree
-Iteration 30: Energy = -0.311062 Hartree
-Iteration 40: Energy = -0.296710 Hartree
 
-Optimization completed in 43 iterations.
-Final energy: -0.323785 Hartree
+Optimization completed in 3 iterations.
+Final energy: -1.042314 Hartree
+VQE Energy at 0.489 Å: -1.042314 Ha
+
+--- Point 4/10: Distance = 0.633 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: Powell, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+
+Optimization completed in 2 iterations.
+Final energy: -1.118011 Hartree
+VQE Energy at 0.633 Å: -1.118011 Ha
+
+--- Point 5/10: Distance = 0.778 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: Powell, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+
+Optimization completed in 3 iterations.
+Final energy: -1.120657 Hartree
+VQE Energy at 0.778 Å: -1.120657 Ha
+
+--- Point 6/10: Distance = 0.922 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: Powell, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+
+Optimization completed in 2 iterations.
+Final energy: -1.096066 Hartree
+VQE Energy at 0.922 Å: -1.096066 Ha
+
+--- Point 7/10: Distance = 1.067 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: Powell, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+
+Optimization completed in 3 iterations.
+Final energy: -1.052757 Hartree
+VQE Energy at 1.067 Å: -1.052757 Ha
+
+--- Point 8/10: Distance = 1.211 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: Powell, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+
+Optimization completed in 2 iterations.
+Final energy: -1.007891 Hartree
+VQE Energy at 1.211 Å: -1.007891 Ha
+
+--- Point 9/10: Distance = 1.356 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: Powell, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+
+Optimization completed in 5 iterations.
+Final energy: -0.976973 Hartree
+VQE Energy at 1.356 Å: -0.976973 Ha
+
+--- Point 10/10: Distance = 1.500 Å ---
+
+=== VQE Single Point Optimization ===
+Backend: aer_simulator
+Method: Powell, Options: {'maxiter': 100}
+Initial parameters shape: (12,)
+Number of Ansatz parameters: 12
+
+Optimization completed in 6 iterations.
+Final energy: -0.958153 Hartree
+VQE Energy at 1.500 Å: -0.958153 Ha
+
+Optimal bond distance: 0.778 Å with energy -1.120657 Hartree
+Geometry optimization results saved to bond_scan.dat
