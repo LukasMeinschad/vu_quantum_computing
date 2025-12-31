@@ -1,3 +1,4 @@
+import numpy as np
 from qiskit_aer import AerSimulator
 
 import modules.molecule as molecule
@@ -75,28 +76,61 @@ if __name__ == "__main__":
     ansatz_module.write_ansatz_out(ansatz, out_file)
     ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
 
-    # Run Geometry Optimization via Bond Distance Scan
-    optimization.bond_scan(
-        ansatz,
-        backend,
-        out_file=out_file,
-        distance_range=(0.2, 1.5),
-        num_points=10,
-        method=vqe_optimizer,
-        options={"maxiter": 100},
-    )
-
-    # Run Geometry Optimization with Gradient Evaluation
-    energies, distances, optimal_params, optimal_distance = (
-        optimization.geometry_optimization_sim(
-            ansatz=ansatz,
-            backend=backend,
-            out_file=out_file,
-            initial_distance=0.8,
-            method=vqe_optimizer,
-            convergence_threshold=1e-4,
-            step_method="backtracking",
-            max_iterations=36,
-            options={"maxiter": 100},
+    # Run Geometry Optimization
+    if mol.natm == 2:
+        energies, distances, optimal_params, optimal_distance = (
+            optimization.geometry_optimization_diatomic(
+                ansatz=ansatz,
+                backend=backend,
+                out_file=out_file,
+                initial_distance=0.8,
+                method=vqe_optimizer,
+                convergence_threshold=1e-4,
+                step_method="backtracking",
+                max_iterations=36,
+                options={"maxiter": 100},
+            )
         )
-    )
+    elif mol.natm == 3:
+        atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
+        coords = np.array([mol.atom[i][1] for i in range(mol.natm)])
+
+        vec1 = coords[1] - coords[0]
+        vec2 = coords[2] - coords[0]
+        
+        R1 = np.linalg.norm(vec1)
+        R2 = np.linalg.norm(vec2)
+
+        # Calculate bond angle at central atom (angle 1-0-2)
+        cos_theta = np.dot(vec1, vec2) / (R1 * R2)
+        theta = (
+            np.arccos(np.clip(cos_theta, -1.0, 1.0)) * 180.0 / np.pi
+        )  # Convert to degrees
+
+        initial_geometry = {
+            "R1": R1,
+            "R2": R2,
+            "theta": theta,
+        }
+
+        energies_h2o, geometries_h2o, optimal_params_h2o, optimal_geometry_h2o = (
+            optimization.geometry_optimization_triatomic(
+                ansatz=ansatz,
+                backend=backend,
+                out_file=out_file,
+                atom_labels=atom_labels,
+                initial_geometry=initial_geometry,
+                max_iterations=30,
+                convergence_threshold=1e-4,
+                method=vqe_optimizer,
+                step_size=0.05,
+                basis=basis,
+                ncas=ncas,  # 4 active orbitals for water
+                nelecas=nelecas,  # 4 electrons in active space
+                options={"maxiter": 100},
+            )
+        )
+    else:
+        raise ValueError(
+            "Geometry optimization currently supports only diatomic or triatomic molecules."
+        )

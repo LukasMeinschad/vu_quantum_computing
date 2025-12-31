@@ -220,6 +220,64 @@ def build_hamiltonian(
     return H.chop().simplify()
 
 
+def build_triatomic_hamiltonian(
+    geometry_params, atom_labels, basis="sto-3g", ncas=4, nelecas=(2, 2)
+):
+    """
+    Build Hamiltonian for a three-atomic molecule with given geometry parameters
+
+    Assumes atom_labels[0] is the central atom with bonds to atoms 1 and 2.
+
+    Args:
+        geometry_params: Dictionary with geometry parameters
+            For bent (like H2O): {"R1": bond_length_0_to_1, "R2": bond_length_0_to_2, "theta": angle_in_degrees}
+            For linear: {"R1": bond1_length, "R2": bond2_length}
+        atom_labels: List of three atom symbols where [0] is central, e.g., ["O", "H", "H"]
+        basis: Basis set for calculation
+        ncas: Number of active space orbitals
+        nelecas: Number of active space electrons (alpha, beta)
+
+    Returns:
+        ecore, h1e, h2e: Hamiltonian components
+    """
+
+    # Build molecular geometry based on parameters
+    R1 = geometry_params["R1"]
+    R2 = geometry_params["R2"]
+
+    if "theta" in geometry_params:
+        # Bent molecule (e.g., H2O) - central atom at origin
+        theta = geometry_params["theta"] * np.pi / 180.0  # Convert to radians
+
+        # Central atom at origin, first atom along z-axis, second in xz-plane
+        coords = [
+            [atom_labels[0], (0.0, 0.0, 0.0)],  # Central atom (e.g., O) at origin
+            [atom_labels[1], (0.0, 0.0, R1)],  # First peripheral atom along z-axis
+            [
+                atom_labels[2],
+                (R2 * np.sin(theta), 0.0, R2 * np.cos(theta)),
+            ],  # Second peripheral atom in xz-plane
+        ]
+    else:
+        # Linear molecule - central atom at origin
+        coords = [
+            [atom_labels[0], (0.0, 0.0, 0.0)],  # Central atom at origin
+            [atom_labels[1], (R1, 0.0, 0.0)],  # First atom along x-axis
+            [atom_labels[2], (-R2, 0.0, 0.0)],  # Second atom along negative x-axis
+        ]
+
+    mol = gto.Mole()
+    mol.build(verbose=0, atom=coords, basis=basis, spin=0, charge=0, symmetry=False)
+
+    mf = scf.RHF(mol)
+    mf.kernel()
+
+    if not mf.converged:
+        raise ValueError("SCF calculation did not converge.")
+
+    return get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
+
+
 # Logging functions
 
 
