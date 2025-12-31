@@ -9,7 +9,7 @@ import modules.ansatz as ansatz_module
 import modules.optimization as optimization
 
 """
-To make this script a little bit more readable we should make functions that
+To make this script more readable we should make functions that
 we can then just call in the main block
 """
 
@@ -238,9 +238,6 @@ def influence_optimizer_choice(mf, backend, out_file, molecule="H2"):
 
 if __name__ == "__main__":
 
-    
-
-
     # Set parameters
     out_file = "results.log"
     input_geometry = "./test_molecules/h2.xyz"
@@ -269,9 +266,8 @@ if __name__ == "__main__":
     molecule.write_molecule_out(mol, out_file)
     molecule.write_energy_out(mf, out_file)
 
-    
     """  
-    This test function can be uncommented to run different comparison tests
+    These test functions can be uncommented to run different comparison tests
     regarding the VQE optimization process.
     """
 
