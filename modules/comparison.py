@@ -1,9 +1,11 @@
-import matplotlib.pyplot as plt
+import time
 import numpy as np
+import matplotlib.pyplot as plt
 
 import modules.hamiltonian as hamiltonian
 import modules.ansatz as ansatz_module
 import modules.optimization as optimization
+import modules.mapping as mapping
 
 
 def run_single_point_comparison(mf, backend, out_file, molecule="H2"):
@@ -227,3 +229,45 @@ def influence_optimizer_choice(mf, backend, out_file, molecule="H2"):
     plt.grid()
     plt.savefig('images/vqe_optimizer_influence.png')
     plt.close()
+
+def compare_mappings(ecore, h1e, h2e, out_file):
+    """
+    Compares the Jordan-Wigner and Bravyi-Kitaev mapping for the same fermionic Hamiltonian
+    """
+    start_jw = time.time()
+    ncas, _ = h1e.shape
+    C_jw, D_jw = mapping.creators_destructors(ncas * 2, mapping="jordan_wigner")
+    H_jw = mapping.build_hamiltonian_helper(ecore, h1e, h2e, C_jw, D_jw, ncas)
+    end_jw = time.time()
+
+    start_bk = time.time()
+    C_bk, D_bk = mapping.creators_destructors(ncas * 2, mapping="bravyi_kitaev")
+    H_bk = mapping.build_hamiltonian_helper(ecore, h1e, h2e, C_bk, D_bk, ncas)
+    end_bk = time.time()
+
+    speedup = (
+        (end_jw - start_jw) / (end_bk - start_bk)
+        if (end_bk - start_bk) != 0
+        else float("inf")
+    )
+    term_reduction = (
+        len(H_jw.paulis) / len(H_bk.paulis) if len(H_bk.paulis) != 0 else float("inf")
+    )
+
+    with open(out_file, "a") as f:
+        f.write("\n === Comparing Jordan-Wigner and Bravyi-Kitaev Mappings ===\n")
+        f.write("\n-- Jordan-Wigner Mapping --\n")
+        f.write(f"Jordan-Wigner Hamiltonian has {len(H_jw.paulis)} Pauli terms\n")
+        f.write(f"Time taken for Jordan-Wigner: {end_jw - start_jw:.4f} seconds\n")
+        f.write("\n-- Bravyi-Kitaev Mapping --\n")
+        f.write(f"Bravyi-Kitaev Hamiltonian has {len(H_bk.paulis)} Pauli terms\n")
+        f.write(f"Time taken for Bravyi-Kitaev: {end_bk - start_bk:.4f} seconds\n")
+        f.write(f"\nSpeedup (BK vs JW): {speedup:.2f}x\n")
+        f.write(f"Term Reduction (BK vs JW): {term_reduction:.2f}x\n\n")
+
+    return {
+        "H_jw": H_jw,
+        "H_bk": H_bk,
+        "time_jw": end_jw - start_jw,
+        "time_bk": end_bk - start_bk,
+    }

@@ -38,6 +38,14 @@ if __name__ == "__main__":
     molecule.write_molecule_out(mol, out_file)
     molecule.write_energy_out(mf, out_file)
 
+    # Get Hartree-Fock Fermionic Hamiltonian
+    ecore, h1e, h2e = hamiltonian.get_hf_hamiltonian(mf)
+    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="Hartree-Fock")
+
+    # Get Complete Active Space Fermionic Hamiltonian
+    ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
+    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="CASCI")
+
     """  
     These test functions can be uncommented to run different comparison tests
     regarding the VQE optimization process.
@@ -54,17 +62,9 @@ if __name__ == "__main__":
 
     # Compare the influence of ansatz depth on VQE optimization
     # comparison.influence_ansatz_depth(mf, backend, out_file)
-
-    # Get Hartree-Fock Fermionic Hamiltonian
-    ecore, h1e, h2e = hamiltonian.get_hf_hamiltonian(mf)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="Hartree-Fock")
-
-    # Get Complete Active Space Fermionic Hamiltonian
-    ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="CASCI")
-
+    
     # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
-    mapping.compare_mappings(ecore, h1e, h2e, out_file)
+    # comparison.compare_mappings(ecore, h1e, h2e, out_file)
 
     # Build Qubit Hamiltonian
     H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping_method)
