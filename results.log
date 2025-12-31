@@ -141,3 +141,9 @@ Step 12: E = -1.12061198 Ha, bond length = 0.724275 Å, nuclear gradient = 0.016
 Step 16: E = -1.12309972 Ha, bond length = 0.717742 Å, nuclear gradient = 0.009677 Ha/Å
 Step 20: E = -1.12215617 Ha, bond length = 0.716045 Å, nuclear gradient = 0.001404 Ha/Å
 Step 24: E = -1.12241167 Ha, bond length = 0.715762 Å, nuclear gradient = 0.001412 Ha/Å
+Step 28: E = -1.12149455 Ha, bond length = 0.715056 Å, nuclear gradient = -0.002396 Ha/Å
+Step 32: E = -1.12412275 Ha, bond length = 0.715365 Å, nuclear gradient = 0.007753 Ha/Å
+
+Optimization completed in 36 steps.
+Final bond distance: 0.714707 Å
+Final energy: -1.12346231 Ha

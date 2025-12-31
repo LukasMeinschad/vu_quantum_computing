@@ -3,7 +3,6 @@ from qiskit_aer import AerSimulator
 
 import modules.molecule as molecule
 import modules.hamiltonian as hamiltonian
-import modules.mapping as mapping
 import modules.ansatz as ansatz_module
 import modules.optimization as optimization
 import modules.comparison as comparison
@@ -62,7 +61,7 @@ if __name__ == "__main__":
 
     # Compare the influence of ansatz depth on VQE optimization
     # comparison.influence_ansatz_depth(mf, backend, out_file)
-    
+
     # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
     # comparison.compare_mappings(ecore, h1e, h2e, out_file)
 
@@ -78,14 +77,17 @@ if __name__ == "__main__":
 
     # Run Geometry Optimization
     if mol.natm == 2:
+        coords = np.array([mol.atom[i][1] for i in range(mol.natm)])
+        initial_distance = np.linalg.norm(coords[1] - coords[0])
+
         energies, distances, optimal_params, optimal_distance = (
             optimization.geometry_optimization_diatomic(
                 ansatz=ansatz,
                 backend=backend,
                 out_file=out_file,
-                initial_distance=0.8,
+                initial_distance=initial_distance,
                 method=vqe_optimizer,
-                convergence_threshold=1e-4,
+                convergence_threshold=1e-3,
                 step_method="backtracking",
                 max_iterations=36,
                 options={"maxiter": 100},
@@ -97,7 +99,7 @@ if __name__ == "__main__":
 
         vec1 = coords[1] - coords[0]
         vec2 = coords[2] - coords[0]
-        
+
         R1 = np.linalg.norm(vec1)
         R2 = np.linalg.norm(vec2)
 
@@ -121,12 +123,12 @@ if __name__ == "__main__":
                 atom_labels=atom_labels,
                 initial_geometry=initial_geometry,
                 max_iterations=30,
-                convergence_threshold=1e-4,
+                convergence_threshold=1e-3,
                 method=vqe_optimizer,
                 step_size=0.05,
                 basis=basis,
-                ncas=ncas,  # 4 active orbitals for water
-                nelecas=nelecas,  # 4 electrons in active space
+                ncas=ncas,
+                nelecas=nelecas,
                 options={"maxiter": 100},
             )
         )
