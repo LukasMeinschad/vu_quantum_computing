@@ -450,7 +450,6 @@ def line_search_backtracking(
     distance,
     grad,
     ansatz,
-    backend,
     estimator,
     initial_step=0.1,
     alpha=1e-4,
@@ -471,7 +470,6 @@ def line_search_backtracking(
         distance: Current bond distance in Angstrom
         grad: Gradient value at current parameters
         ansatz: Qiskit QuantumCircuit object representing the ansatz
-        backend: Qiskit backend (simulator or real device)
         estimator: Qiskit Estimator primitive object
         initial_step (float): Initial step size for line search
         alpha (float): Parameter for Armijo condition
@@ -848,7 +846,7 @@ def geometry_optimization_triatomic(
         f.write(f"Final energy: {current_energy:.8f} Ha\n")
 
     # Plot convergence
-    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+    fig, axes = plt.subplots(3, 1, figsize=(10, 12))
 
     # Energy convergence
     axes[0].plot(range(len(energies)), energies, marker="o", linewidth=2)
@@ -857,19 +855,41 @@ def geometry_optimization_triatomic(
     axes[0].set_title("Energy Convergence")
     axes[0].grid(True)
 
-    # Geometry parameters convergence
-    for param_name in initial_geometry.keys():
-        param_values = [geom[param_name] for geom in geometries]
-        label = f"{param_name} ({'Å' if param_name.startswith('R') else '°'})"
-        axes[1].plot(
-            range(len(param_values)), param_values, marker="o", label=label, linewidth=2
-        )
+    # Bond distances convergence (R1 and R2)
+    R1_values = [geom["R1"] for geom in geometries]
+    axes[1].plot(
+        range(len(R1_values)), R1_values, marker="o", label="R1", linewidth=2
+    )
+    R2_values = [geom["R2"] for geom in geometries]
+    axes[1].plot(
+        range(len(R2_values)), R2_values, marker="o", label="R2", linewidth=2
+    )
 
     axes[1].set_xlabel("Iteration")
-    axes[1].set_ylabel("Geometry Parameters")
-    axes[1].set_title("Geometry Convergence")
+    axes[1].set_ylabel("Bond Distance / Å")
+    axes[1].set_title("Bond Distance Convergence")
     axes[1].legend()
     axes[1].grid(True)
+
+    # Bond angle convergence (theta)
+    if "theta" in initial_geometry:
+        theta_values = [geom["theta"] for geom in geometries]
+        axes[2].plot(
+            range(len(theta_values)),
+            theta_values,
+            marker="o",
+            label="theta",
+            linewidth=2,
+            color="green",
+        )
+        axes[2].set_xlabel("Iteration")
+        axes[2].set_ylabel("Angle / °")
+        axes[2].set_title("Angle Convergence")
+        axes[2].legend()
+        axes[2].grid(True)
+    else:
+        # For linear molecules without theta, hide the third subplot
+        axes[2].set_visible(False)
 
     plt.tight_layout()
     plt.savefig(

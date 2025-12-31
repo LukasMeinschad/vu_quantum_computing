@@ -12,18 +12,21 @@ if __name__ == "__main__":
 
     # Set Parameters
     out_file = "results.log"
-    input_geom = "./test_molecules/h2.xyz"
+    input_geom = "./test_molecules/water.xyz"
     spin = 0
     charge = 0
     symmetry = True
     basis = "sto-3g"
-    ncas = 2  # Number of active space orbitals for CASCI
-    nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
+    ncas = 4  # Number of active space orbitals for CASCI
+    nelecas = (2, 2)  # Number of active space electrons (alpha, beta) for CASCI
     mapping_method = "bravyi_kitaev"
     ansatz_type = "pauli_two_design"
-    reps = 5  # Number of repetitions for the ansatz
+    reps = 2  # Number of repetitions for the ansatz
     entanglement = "full"  # Entanglement pattern for the ansatz
-    vqe_optimizer = "Powell"  # Optimizer choice for VQE
+    vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
+    max_vqe_iterations = 100
+    max_geoopt_iterations = 8
+    geoopt_convergence_threshold = 1e-3
 
     backend = AerSimulator()
 
@@ -87,10 +90,10 @@ if __name__ == "__main__":
                 out_file=out_file,
                 initial_distance=initial_distance,
                 method=vqe_optimizer,
-                convergence_threshold=1e-3,
+                convergence_threshold=geoopt_convergence_threshold,
                 step_method="backtracking",
-                max_iterations=36,
-                options={"maxiter": 100},
+                max_iterations=max_geoopt_iterations,
+                options={"maxiter": max_vqe_iterations},
             )
         )
     elif mol.natm == 3:
@@ -122,14 +125,14 @@ if __name__ == "__main__":
                 out_file=out_file,
                 atom_labels=atom_labels,
                 initial_geometry=initial_geometry,
-                max_iterations=30,
-                convergence_threshold=1e-3,
+                max_iterations=max_geoopt_iterations,
+                convergence_threshold=geoopt_convergence_threshold,
                 method=vqe_optimizer,
                 step_size=0.05,
                 basis=basis,
                 ncas=ncas,
                 nelecas=nelecas,
-                options={"maxiter": 100},
+                options={"maxiter": max_vqe_iterations},
             )
         )
     else:
