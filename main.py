@@ -6,27 +6,91 @@ import modules.hamiltonian as hamiltonian
 import modules.ansatz as ansatz_module
 import modules.optimization as optimization
 import modules.comparison as comparison
+import modules.args as args
 
 
 if __name__ == "__main__":
 
-    # Set Parameters
+
+    # Parse Command-Line Arguments 
+    cli_args = args.parse_arguments()
+
+    # Set out file
     out_file = "results.log"
-    input_geom = "./test_molecules/water.xyz"
-    spin = 0
-    charge = 0
-    symmetry = True
-    basis = "sto-3g"
-    ncas = 4  # Number of active space orbitals for CASCI
-    nelecas = (2, 2)  # Number of active space electrons (alpha, beta) for CASCI
-    mapping_method = "bravyi_kitaev"
-    ansatz_type = "pauli_two_design"
-    reps = 2  # Number of repetitions for the ansatz
-    entanglement = "full"  # Entanglement pattern for the ansatz
-    vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-    max_vqe_iterations = 100
-    max_geoopt_iterations = 8
-    geoopt_convergence_threshold = 1e-3
+    if cli_args.molecule == "H2":
+        input_geom = "./test_molecules/h2.xyz"
+        spin = 0
+        charge = 0
+        symmetry = True 
+        basis = "sto-3g"
+        ncas = 2  # Number of active space orbitals for CASCI
+        nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
+        mapping_method = "jordan_wigner"
+        ansatz_type = "efficient_su2"
+        reps = 1 # Number of repetitions for the ansatz
+        entanglement = "linear" # Entanglement pattern for the ansatz
+        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
+        max_vqe_iterations = 200
+        max_geoopt_iterations = 20
+        geoopt_convergence_threshold = 1e-4
+        hf_initial_state = True
+
+    elif cli_args.molecule == "LiH":
+        input_geom = "./test_molecules/lih.xyz"
+        spin = 0
+        charge = 0
+        symmetry = True 
+        basis = "sto-3g"
+        ncas = 4  # Number of active space orbitals for CASCI
+        nelecas = (2, 2)  # Number of active space electrons (alpha, beta) for CASCI
+        mapping_method = "bravyi_kitaev"
+        ansatz_type = "pauli_two_design"
+        reps = 2 # Number of repetitions for the ansatz
+        entanglement = "full" # Entanglement pattern for the ansatz
+        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
+        max_vqe_iterations = 100 
+        max_geoopt_iterations = 8
+        geoopt_convergence_threshold = 1e-3
+        hf_initial_state = True
+
+    elif cli_args.molecule == "HF":
+        input_geom = "./test_molecules/hf.xyz"
+        spin = 0
+        charge = 0
+        symmetry = True 
+        basis = "sto-3g"
+        # HF molecule has 10 electrons so we have different choices for an active space 
+        ncas = 6 # Number of Active Orbitals 
+        nelecas = (5, 5)  # (alpha, beta) electrons - 10 total in active space
+        mapping_method = "bravyi_kitaev"
+        ansatz_type = "pauli_two_design"
+        reps = 2 # Number of repetitions for the ansatz
+        entanglement = "full" # Entanglement pattern for the ansatz
+        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
+        max_vqe_iterations = 100 
+        max_geoopt_iterations = 8
+        geoopt_convergence_threshold = 1e-3
+        hf_initial_state = True
+
+    elif cli_args.molecule == "H2O":
+        input_geom = "./test_molecules/water.xyz"
+        spin = 0
+        charge = 0
+        symmetry = True 
+        basis = "sto-3g"
+        ncas = 7  # Number of active space orbitals for CASCI
+        nelecas = (5, 5)  # (alpha, beta) electrons - 10 total
+        mapping_method = "bravyi_kitaev"
+        ansatz_type = "pauli_two_design"
+        reps = 2 # Number of repetitions for the ansatz
+        entanglement = "full" # Entanglement pattern for the ansatz
+        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
+        max_vqe_iterations = 100 
+        max_geoopt_iterations = 8
+        geoopt_convergence_threshold = 1e-3
+        hf_initial_state = True
+
+    
 
     backend = AerSimulator()
 
@@ -60,7 +124,7 @@ if __name__ == "__main__":
     # comparison.initial_parameters_influence(mf, backend, out_file)
 
     # Compare the influence of optimizer choice on VQE optimization
-    # comparison.influence_optimizer_choice(mf, backend, out_file)
+    #comparison.influence_optimizer_choice(mf, backend, out_file)
 
     # Compare the influence of ansatz depth on VQE optimization
     # comparison.influence_ansatz_depth(mf, backend, out_file)
@@ -74,9 +138,21 @@ if __name__ == "__main__":
 
     # Create Ansatz Circuit
     num_qubits = H_qubit.num_qubits
-    ansatz = ansatz_module.create_ansatz(num_qubits, ansatz_type, reps, entanglement)
+    use_hf_initial_state = hf_initial_state
+    
+    ansatz = ansatz_module.create_ansatz(
+        num_qubits=num_qubits,
+        ansatz_type=ansatz_type,
+        reps=reps,
+        entanglement=entanglement,
+        num_electrons=nelecas,
+        use_hf_initial_state=use_hf_initial_state,
+    )
+    
     ansatz_module.write_ansatz_out(ansatz, out_file)
     ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
+    print(f"Ansatz has {ansatz.num_qubits} qubits and {len(ansatz.data)} gates.")
+    print(f"Hamiltonian has {H_qubit.num_qubits} qubits and {len(H_qubit.paulis)} Pauli terms.")
 
     # Run Geometry Optimization
     if mol.natm == 2:
@@ -94,6 +170,22 @@ if __name__ == "__main__":
                 step_method="backtracking",
                 max_iterations=max_geoopt_iterations,
                 options={"maxiter": max_vqe_iterations},
+
+                # Two stage optimization 
+                use_two_stage_vqe = False,
+                stage1_maxiter=150,
+                stage2_maxiter= 100,
+
+                # Molecule specific parameters
+                atom1 = mol.atom_symbol(0),
+                atom2 = mol.atom_symbol(1),
+                basis = basis,
+                spin = spin,
+                charge = charge,
+                symmetry= symmetry,
+                ncas = ncas,
+                nelecas = nelecas,
+                mapping_method = mapping_method,
             )
         )
     elif mol.natm == 3:

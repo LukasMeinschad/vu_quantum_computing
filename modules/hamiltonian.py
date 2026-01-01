@@ -87,28 +87,49 @@ def run_scf_calculation(mol, method="RHF", verbose=False):
     return mf
 
 
-def ham_terms_diatomic(x: float):
+def ham_terms_diatomic(
+        x: float, 
+        atom1: str = "H", 
+        atom2: str = "H",
+        basis: str = "sto-3g",
+        spin: int = 0,
+        charge: int = 0,
+        symmetry: bool = True,
+        ncas: int = 2,
+        nelecas: tuple = (1, 1),
+):
     """
     Build Hamiltonian terms for a diatomic molecule based on bond distance x (in Angstrom)
 
     Args:
         x (float): Bond distance in Angstrom
+        atom1 (str): Symbol of first atom
+        atom2 (str): Symbol of second atom
+        basis (str): Basis set for calculation
+        spin (int): Spin multiplicity
+        charge (int): Molecular charge
+        symmetry (bool): Whether to use molecular symmetry
+        ncas (int): Number of active space orbitals
+        nelecas (tuple): Number of active space electrons (alpha, beta)
 
-    Returns:
-        h1e: One-electron integrals
-        h2e: Two-electron integrals
-        ecore: Core energy
+    
     """
     distance = x
     a = distance / 2
+
+
+
     mol = gto.Mole()
     mol.build(
-        verbose=0,
-        atom=[["H", (0, 0, -a)], ["H", (0, 0, a)]],
-        basis="sto-6g",
-        spin=0,
-        charge=0,
-        symmetry=True,
+       verbose=0,
+       atom=[
+           [atom1, (0.0, 0.0, -a)],
+           [atom2, (0.0, 0.0, a)],
+       ],
+         basis=basis,
+        spin=spin,
+        charge=charge,
+        symmetry=symmetry,
     )
 
     mf = scf.RHF(mol)
@@ -117,48 +138,51 @@ def ham_terms_diatomic(x: float):
     if not mf.converged:
         raise ValueError("SCF calculation did not converge.")
 
-    return get_casci_hamiltonian(mf, ncas=2, nelecas=(1, 1))
+    return get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
 
 
-def build_hamiltonian_with_geometry(distx: float) -> SparsePauliOp:
+def build_hamiltonian_with_geometry(
+        distx: float,
+        atom1: str = "H",
+        atom2: str = "H",
+        basis: str = "sto-3g",
+        spin: int = 0,
+        charge: int = 0,
+        symmetry: bool = True,
+        ncas: int = 2,
+        nelecas: tuple = (1, 1),
+        mapping_method: str = "jordan_wigner",
+        ) -> SparsePauliOp:
     """
     Build qubit Hamiltonian for H2 molecule at given bond distance
 
     Args:
         distx (float): Bond distance in Angstrom
+        atom1 (str): Symbol of first atom
+        atom2 (str): Symbol of second atom
+        basis (str): Basis set for calculation
+        spin (int): Spin multiplicity
+        charge (int): Molecular charge
+        symmetry (bool): Whether to use molecular symmetry
+        ncas (int): Number of active space orbitals
+        nelecas (tuple): Number of active space electrons (alpha, beta) 
+    
     Returns:
-        H_qubit: Qubit Hamiltonian as SparsePauliOp
+        Qubit Hamiltonian as SparsePauliOp
     """
-    ecore, h1e, h2e = ham_terms_diatomic(distx)
+    ecore, h1e, h2e = ham_terms_diatomic(
+        distx,
+        atom1=atom1,
+        atom2=atom2,
+        basis=basis,
+        spin=spin,
+        charge=charge,
+        symmetry=symmetry,
+        ncas=ncas,
+        nelecas=nelecas,
+    )
 
-    ncas, _ = h1e.shape
-    C, D = mapping.creators_destructors(ncas * 2, mapping="jordan_wigner")
-    Exc = []
-    for p in range(ncas):
-        Excp = [C[p] @ D[p] + C[ncas + p] @ D[ncas + p]]
-        for r in range(p + 1, ncas):
-            Excp.append(
-                C[p] @ D[r]
-                + C[ncas + p] @ D[ncas + r]
-                + C[r] @ D[p]
-                + C[ncas + r] @ D[ncas + p]
-            )
-        Exc.append(Excp)
-    # Low-rank decomposition of h2e
-    Lop, ng = mapping.cholesky(h2e, eps=1e-5)
-    t1e = h1e - 0.5 * np.einsum("pxxr->pr", h2e)
-    H = ecore * mapping.identity(ncas * 2)
-    for p in range(ncas):
-        for r in range(p, ncas):
-            H += t1e[p, r] * Exc[p][r - p]
-    # Add two body terms
-    for g in range(ng):
-        Lg = 0 * mapping.identity(ncas * 2)
-        for p in range(ncas):
-            for r in range(p, ncas):
-                Lg += Lop[p, r, g] * Exc[p][r - p]
-        H += 0.5 * (Lg @ Lg)
-    return H.chop().simplify()
+    return build_hamiltonian(ecore, h1e, h2e, mapping_method=mapping_method)
 
 
 def build_hamiltonian(
@@ -215,6 +239,9 @@ def build_hamiltonian(
                 Lg += Lop[p, r, g] * Exc[p][r - p]
         # Square operator
         H += 0.5 * (Lg @ Lg)
+
+    H = H.chop().simplify() 
+
 
     # Combine like terms and remove small coefficients
     return H.chop().simplify()

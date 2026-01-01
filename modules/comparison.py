@@ -99,7 +99,7 @@ def initial_parameters_influence(mf, backend, out_file, molecule="H2"):
     ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
     H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping_method="jordan_wigner")
     num_qubits = H_qubit.num_qubits
-    ansatz = ansatz_module.create_ansatz(num_qubits, ansatz_type="pauli_two_design", reps=3, entanglement="full")
+    ansatz = ansatz_module.create_ansatz(num_qubits, ansatz_type="efficient_su2", reps=2, entanglement="full", num_electrons=nelecas, use_hf_initial_state=True)
     
     # Randomize values in interval 2 * pi * uniform(0,1)
     n_initial_params = 5
@@ -185,20 +185,19 @@ def influence_optimizer_choice(mf, backend, out_file, molecule="H2"):
     Function that studies the influence of optimizer choice on the VQE optimization
 
     We use the following optimizers:
-    - COBYLA
-    - Nelder-Mead
     - BFGS
+    - L-BFGS-B 
+    - COBYLA 
     - SLSQP
-    - Powell
     """
     ncas = 2  # Number of active space orbitals for CASCI
     nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
     ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
     H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping_method="jordan_wigner")
     num_qubits = H_qubit.num_qubits
-    ansatz = ansatz_module.create_ansatz(num_qubits, ansatz_type="pauli_two_design", reps=3, entanglement="full")
+    ansatz = ansatz_module.create_ansatz(num_qubits, ansatz_type="uccsd", reps=2, entanglement="full", num_electrons=nelecas, use_hf_initial_state=True)
     
-    optimizers = ["COBYLA", "Nelder-Mead", "BFGS", "SLSQP", "Powell"]
+    optimizers = ["BFGS", "L-BFGS-B", "COBYLA", "SLSQP"]
     results = {}
     for optimizer in optimizers:
         print(f"\nRunning VQE with optimizer: {optimizer}...\n")
