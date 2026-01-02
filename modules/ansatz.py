@@ -63,7 +63,7 @@ def create_pauli_two_design_ansatz(num_qubits, reps=2, entanglement="full", init
         entanglement (str): Entanglement pattern ("linear", "full", etc.)
     """
     var_circuit = pauli_two_design(
-        num_qubits=num_qubits, reps=reps, entanglement=entanglement, insert_barriers=True
+        num_qubits=num_qubits, reps=reps, insert_barriers=True
     )
     if initial_state is not None:
         ansatz = initial_state.compose(var_circuit)

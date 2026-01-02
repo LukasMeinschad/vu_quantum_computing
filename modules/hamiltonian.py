@@ -89,8 +89,7 @@ def run_scf_calculation(mol, method="RHF", verbose=False):
 
 def ham_terms_diatomic(
         distance: float, 
-        atom1: str = "H", 
-        atom2: str = "H",
+        atom_labels: list[str],
         basis: str = "sto-3g",
         spin: int = 0,
         charge: int = 0,
@@ -103,8 +102,7 @@ def ham_terms_diatomic(
 
     Args:
         distance (float): Bond distance in Angstrom
-        atom1 (str): Symbol of first atom
-        atom2 (str): Symbol of second atom
+        atom_labels: List of two atom symbols, e.g., ["H", "H"]
         basis (str): Basis set for calculation
         spin (int): Spin multiplicity
         charge (int): Molecular charge
@@ -118,8 +116,8 @@ def ham_terms_diatomic(
     mol.build(
        verbose=0,
        atom=[
-           [atom1, (0.0, 0.0, 0.0)],
-           [atom2, (0.0, 0.0, distance)],
+           [atom_labels[0], (0.0, 0.0, 0.0)],
+           [atom_labels[1], (0.0, 0.0, distance)],
        ],
         basis=basis,
         spin=spin,
@@ -138,8 +136,7 @@ def ham_terms_diatomic(
 
 def build_hamiltonian_with_geometry(
         distx: float,
-        atom1: str = "H",
-        atom2: str = "H",
+        atom_labels: list[str],
         basis: str = "sto-3g",
         spin: int = 0,
         charge: int = 0,
@@ -153,8 +150,7 @@ def build_hamiltonian_with_geometry(
 
     Args:
         distx (float): Bond distance in Angstrom
-        atom1 (str): Symbol of first atom
-        atom2 (str): Symbol of second atom
+        atom_labels: List of two atom symbols, e.g., ["H", "H"]
         basis (str): Basis set for calculation
         spin (int): Spin multiplicity
         charge (int): Molecular charge
@@ -167,8 +163,7 @@ def build_hamiltonian_with_geometry(
     """
     ecore, h1e, h2e = ham_terms_diatomic(
         distx,
-        atom1=atom1,
-        atom2=atom2,
+        atom_labels=atom_labels,
         basis=basis,
         spin=spin,
         charge=charge,

@@ -1,4 +1,5 @@
 import numpy as np
+
 import matplotlib
 
 # Use a non-interactive backend to avoid Tkinter GUI issues
@@ -405,9 +406,8 @@ Since i don't know how to compute those analytically :) i will use finite differ
 
 def finite_diff_hamiltonian(
     distance,
+    atom_labels,
     delta=1e-5,
-    atom1="H",
-    atom2="H",
     basis="sto-3g",
     spin=0,
     charge=0,
@@ -418,11 +418,22 @@ def finite_diff_hamiltonian(
 ):
     """
     Helper function to use central difference to compute the gradient with respect to geometry
+
+    Args:
+        distance (float): Bond distance in Angstrom
+        atom_labels (list[str]): List of two atom symbols, e.g., ["H", "H"] or ["Li", "H"]
+        delta (float): Finite difference step size
+        basis (str): Basis set for calculation
+        spin (int): Spin multiplicity
+        charge (int): Molecular charge
+        symmetry (bool): Whether to use molecular symmetry
+        ncas (int): Number of active space orbitals
+        nelecas (tuple): Number of active space electrons (alpha, beta)
+        mapping_method (str): Fermion-to-qubit mapping method
     """
     H_plus = hamiltonian.build_hamiltonian_with_geometry(
         distance + delta,
-        atom1=atom1,
-        atom2=atom2,
+        atom_labels=atom_labels,
         basis=basis,
         spin=spin,
         charge=charge,
@@ -433,8 +444,7 @@ def finite_diff_hamiltonian(
     )
     H_minus = hamiltonian.build_hamiltonian_with_geometry(
         distance - delta,
-        atom1=atom1,
-        atom2=atom2,
+        atom_labels=atom_labels,
         basis=basis,
         spin=spin,
         charge=charge,
@@ -452,10 +462,9 @@ def grad_geometry(
     distance,
     ansatz,
     backend,
+    atom_labels,
     estimator=None,
     delta=0.01,  # INCREASED: 0.01 is more stable for geometry gradients
-    atom1="H",
-    atom2="H",
     basis="sto-3g",
     spin=0,
     charge=0,
@@ -466,8 +475,17 @@ def grad_geometry(
 ):
     """
     Calculate nuclear gradient dE/dR using finite differences.
-    
+
     We compute: grad = (E(R+δ) - E(R-δ)) / (2δ)
+
+    Args:
+        params: Current parameter values for the ansatz circuit
+        distance (float): Current bond distance in Angstrom
+        ansatz: Qiskit QuantumCircuit object
+        backend: Qiskit backend
+        atom_labels (list[str]): List of two atom symbols
+        estimator: Qiskit Estimator primitive
+        delta (float): Finite difference step size
     """
     if estimator is None:
         if backend is None:
@@ -481,8 +499,7 @@ def grad_geometry(
     # Compute energy at R + delta
     H_plus = hamiltonian.build_hamiltonian_with_geometry(
         distance + delta,
-        atom1=atom1,
-        atom2=atom2,
+        atom_labels=atom_labels,
         basis=basis,
         spin=spin,
         charge=charge,
@@ -496,8 +513,7 @@ def grad_geometry(
     # Compute energy at R - delta
     H_minus = hamiltonian.build_hamiltonian_with_geometry(
         distance - delta,
-        atom1=atom1,
-        atom2=atom2,
+        atom_labels=atom_labels,
         basis=basis,
         spin=spin,
         charge=charge,
@@ -510,11 +526,11 @@ def grad_geometry(
 
     # Central difference
     gradient = (energy_plus - energy_minus) / (2 * delta)
-    
-  #  print(f"    R = {distance:.6f} Å")
-  #  print(f"    E(R+δ) = {energy_plus:.8f} Ha at R={distance+delta:.6f} Å")
-  #  print(f"    E(R-δ) = {energy_minus:.8f} Ha at R={distance-delta:.6f} Å")
-  #  print(f"    dE/dR = {gradient:.8f} Ha/Å")
+
+    #  print(f"    R = {distance:.6f} Å")
+    #  print(f"    E(R+δ) = {energy_plus:.8f} Ha at R={distance+delta:.6f} Å")
+    #  print(f"    E(R-δ) = {energy_minus:.8f} Ha at R={distance-delta:.6f} Å")
+    #  print(f"    dE/dR = {gradient:.8f} Ha/Å")
 
     return gradient
 
@@ -525,13 +541,11 @@ def line_search_backtracking(
     grad,
     ansatz,
     estimator,
+    atom_labels,
     initial_step=0.1,
     alpha=1e-4,
     beta=0.7,
     max_iter=20,
-    # ADD THESE MOLECULE PARAMETERS:
-    atom1="H",
-    atom2="H",
     basis="sto-3g",
     spin=0,
     charge=0,
@@ -555,16 +569,23 @@ def line_search_backtracking(
         grad: Gradient value at current parameters
         ansatz: Qiskit QuantumCircuit object representing the ansatz
         estimator: Qiskit Estimator primitive object
+        atom_labels (list[str]): List of two atom symbols, e.g., ["H", "H"] or ["Li", "H"]
         initial_step (float): Initial step size for line search
         alpha (float): Parameter for Armijo condition
         beta (float): Step size reduction factor
         max_iter (int): Maximum number of iterations for line search
+        basis (str): Basis set for calculation
+        spin (int): Spin multiplicity
+        charge (int): Molecular charge
+        symmetry (bool): Whether to use molecular symmetry
+        ncas (int): Number of active space orbitals
+        nelecas (tuple): Number of active space electrons (alpha, beta)
+        mapping_method (str): Fermion-to-qubit mapping method
     """
     # BUILD WITH ALL PARAMETERS
     H_current = hamiltonian.build_hamiltonian_with_geometry(
         distance,
-        atom1=atom1,
-        atom2=atom2,
+        atom_labels=atom_labels,
         basis=basis,
         spin=spin,
         charge=charge,
@@ -585,12 +606,11 @@ def line_search_backtracking(
         if distance_new <= 0.1:
             step *= beta
             continue
-        
+
         # BUILD WITH ALL PARAMETERS
         H_new = hamiltonian.build_hamiltonian_with_geometry(
             distance_new,
-            atom1=atom1,
-            atom2=atom2,
+            atom_labels=atom_labels,
             basis=basis,
             spin=spin,
             charge=charge,
@@ -614,7 +634,8 @@ def geometry_optimization_diatomic(
     ansatz,
     backend,
     out_file,
-    initial_distance=0.74,
+    atom_labels,
+    initial_distance,
     initial_params=None,
     max_iterations=36,
     convergence_threshold=1e-4,
@@ -622,12 +643,10 @@ def geometry_optimization_diatomic(
     step_method="backtracking",
     options={"maxiter": 100},
     # We need a two stage optimization here without this the algorithm just doesnt converge at all
-    use_two_stage_vqe = True,
+    use_two_stage_vqe=True,
     stage1_maxiter=150,
-    stage2_maxiter= 100,
+    stage2_maxiter=100,
     # Molecule specific parameters
-    atom1="H",
-    atom2="H",
     basis="sto-3g",
     spin=0,
     charge=0,
@@ -637,28 +656,30 @@ def geometry_optimization_diatomic(
     mapping_method="jordan_wigner",
 ):
     """
-    Simultaneous optimization of circuit parameters and bond distances for H2 molecule
+    Simultaneous optimization of circuit parameters and bond distances for diatomic molecules
 
     Args:
         ansatz: Qiskit QuantumCircuit object representing the ansatz
         backend: Qiskit backend (simulator or real device)
         out_file: Path to output file for logging results
-        initial_distance (float): Initial bond distance in Angstrom
+        atom_labels (list[str]): List of two atom symbols, e.g., ["H", "H"], ["Li", "H"], ["H", "F"]
+        initial_distance (float): Initial bond distance in Angstrom (required)
         initial_params: Initial parameter values for the ansatz
         max_iterations (int): Maximum number of optimization iterations
-        convergence_threshold (float): Convergence threshold for energy change
+        convergence_threshold (float): Convergence threshold for gradient norm
         method (str): Optimization method (e.g., "COBYLA", "Nelder-Mead", etc.)
+        step_method (str): Step size method ("backtracking")
         options (dict): Options for the optimizer
-
-        # Molecule specific parameters
-        atom1 (str): Symbol of the first atom
-        atom2 (str): Symbol of the second atom
+        use_two_stage_vqe (bool): Whether to use two-stage VQE optimization
+        stage1_maxiter (int): Max iterations for stage 1 VQE
+        stage2_maxiter (int): Max iterations for stage 2 VQE
         basis (str): Basis set for quantum chemistry calculations
         spin (int): Spin multiplicity of the molecule
         charge (int): Charge of the molecule
         symmetry (bool): Whether to use molecular symmetry
         ncas (int): Number of active space orbitals for CASCI
         nelecas (tuple): Number of active space electrons (alpha, beta) for CASCI
+        mapping_method (str): Fermion-to-qubit mapping method
     """
     if initial_params is None:
         initial_params = 2 * np.pi * np.random.rand(ansatz.num_parameters)
@@ -677,18 +698,16 @@ def geometry_optimization_diatomic(
     estimator = BackendEstimatorV2(backend=backend_sim)
 
     # Transpile the ansatz
-    pm = generate_preset_pass_manager(
-        optimization_level=3, backend=backend
-    )
+    pm = generate_preset_pass_manager(optimization_level=3, backend=backend)
     ansatz_isa = pm.run(ansatz)
 
     # Storage for results
     energies = []
     distances = []
     nuclear_gradients = []
-    vqe_histories = [] # Store convergence history for each VQE run 
+    vqe_histories = []  # Store convergence history for each VQE run
 
-    params_history = [current_params.copy()] # Make storage for parameters
+    params_history = [current_params.copy()]  # Make storage for parameters
 
     with open(out_file, "a") as f:
         f.write("\n=== Geometry Optimization ===\n")
@@ -701,8 +720,7 @@ def geometry_optimization_diatomic(
         # Build hamiltonian for current geometry
         H_current = hamiltonian.build_hamiltonian_with_geometry(
             current_distance,
-            atom1=atom1,
-            atom2=atom2,
+            atom_labels=atom_labels,
             basis=basis,
             spin=spin,
             charge=charge,
@@ -721,17 +739,13 @@ def geometry_optimization_diatomic(
             vqe_history.append(energy)
 
         if use_two_stage_vqe:
-            # Stage 1: COBYLA with higher tolerance 
+            # Stage 1: COBYLA with higher tolerance
             result_stage1 = minimize(
                 fun=cost_func,
                 x0=current_params,
                 args=(ansatz_isa, H_current, estimator),
                 method="COBYLA",
-                options={
-                    "maxiter": stage1_maxiter,
-                    "rhobeg": 0.5,
-                    "tol":  1e-4
-                },
+                options={"maxiter": stage1_maxiter, "rhobeg": 0.5, "tol": 1e-4},
                 callback=callback_vqe,
             )
             # Stage 2: SLSQP for fine optimization
@@ -740,11 +754,7 @@ def geometry_optimization_diatomic(
                 x0=result_stage1.x,
                 args=(ansatz_isa, H_current, estimator),
                 method="Powell",
-                options={
-                    "maxiter": stage2_maxiter,
-                    "ftol": 1e-2,
-                    "xtol": 1e-2
-                },
+                options={"maxiter": stage2_maxiter, "ftol": 1e-2, "xtol": 1e-2},
                 callback=callback_vqe,
             )
         else:
@@ -757,24 +767,30 @@ def geometry_optimization_diatomic(
                 options=options,
                 callback=callback_vqe,
             )
-        
+
         current_params = result.x
         current_energy = result.fun
 
-        vqe_histories.append({
-            "step": step,
-            "distance": current_distance,
-            "history": vqe_history.copy(),
-            "final_energy": current_energy,
-            "iterations": iteration_count[0],
-        })
+        vqe_histories.append(
+            {
+                "step": step,
+                "distance": current_distance,
+                "history": vqe_history.copy(),
+                "final_energy": current_energy,
+                "iterations": iteration_count[0],
+            }
+        )
 
-        # Check the VQE convergence quality 
+        # Check the VQE convergence quality
         if len(vqe_history) > 2:
-            vqe_variance = np.var(vqe_history[-10:]) # Last ten iterations
-            print(f"Step {step}: VQE energy variance in last 10 iterations: {vqe_variance:.2e}")
+            vqe_variance = np.var(vqe_history[-10:])  # Last ten iterations
+            print(
+                f"Step {step}: VQE energy variance in last 10 iterations: {vqe_variance:.2e}"
+            )
             if vqe_variance > 1e-4:
-                print(f"Warning: VQE did not converge well at step {step}, variance: {vqe_variance:.2e}")
+                print(
+                    f"Warning: VQE did not converge well at step {step}, variance: {vqe_variance:.2e}"
+                )
 
         # Compute nuclear gradient
         grad_nuclear = grad_geometry(
@@ -782,10 +798,8 @@ def geometry_optimization_diatomic(
             current_distance,
             ansatz_isa,
             backend,
-            estimator,
-            # ADD MOLECULE PARAMETERS:
-            atom1=atom1,
-            atom2=atom2,
+            atom_labels=atom_labels,
+            estimator=estimator,
             basis=basis,
             spin=spin,
             charge=charge,
@@ -814,7 +828,7 @@ def geometry_optimization_diatomic(
                     f"Converged at step {step} with energy {current_energy:.8f} Ha\n"
                 )
             break
-        
+
         # Update geometry based on gradient
         if step_method == "backtracking":
             step_size = line_search_backtracking(
@@ -823,13 +837,11 @@ def geometry_optimization_diatomic(
                 grad_nuclear,
                 ansatz_isa,
                 estimator,
+                atom_labels=atom_labels,
                 initial_step=0.1,
                 alpha=1e-4,
                 beta=0.7,
                 max_iter=20,
-                # PASS ALL MOLECULE PARAMETERS:
-                atom1=atom1,
-                atom2=atom2,
                 basis=basis,
                 spin=spin,
                 charge=charge,
@@ -868,12 +880,12 @@ def geometry_optimization_diatomic(
     # Plot VQE convergence for each geometry step
     n_steps = len(vqe_histories)
     n_cols = min(3, n_steps)
-    n_rows = (n_steps + n_cols - 1) // n_cols 
+    n_rows = (n_steps + n_cols - 1) // n_cols
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6* n_cols, 4 * n_rows)) 
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 4 * n_rows))
     if n_steps == 1:
         axes = np.array([[axes]])  # Make it 2D array for consistency
-    
+
     for idx, vqe_data in enumerate(vqe_histories):
         row = idx // n_cols
         col = idx % n_cols
@@ -893,12 +905,11 @@ def geometry_optimization_diatomic(
         row = idx // n_cols
         col = idx % n_cols
         ax = axes[row, col] if n_rows > 1 else axes[col]
-        ax.axis('off')
+        ax.axis("off")
 
     plt.tight_layout()
     plt.savefig("images/vqe_convergence_per_step.png", dpi=300, bbox_inches="tight")
     plt.close()
-
 
     return energies, distances, current_params, distances[-1]
 
@@ -1114,13 +1125,9 @@ def geometry_optimization_triatomic(
 
     # Bond distances convergence (R1 and R2)
     R1_values = [geom["R1"] for geom in geometries]
-    axes[1].plot(
-        range(len(R1_values)), R1_values, marker="o", label="R1", linewidth=2
-    )
+    axes[1].plot(range(len(R1_values)), R1_values, marker="o", label="R1", linewidth=2)
     R2_values = [geom["R2"] for geom in geometries]
-    axes[1].plot(
-        range(len(R2_values)), R2_values, marker="o", label="R2", linewidth=2
-    )
+    axes[1].plot(range(len(R2_values)), R2_values, marker="o", label="R2", linewidth=2)
 
     axes[1].set_xlabel("Iteration")
     axes[1].set_ylabel("Bond Distance / Å")
