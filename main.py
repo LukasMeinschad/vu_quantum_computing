@@ -149,42 +149,38 @@ if __name__ == "__main__":
 
     # Run Geometry Optimization
     if mol.natm == 2:
-        energies, distances, optimal_params, optimal_distance = (
-            optimization.geometry_optimization_diatomic(
-                ansatz=ansatz,
-                backend=backend,
-                out_file=out_file,
-                mol=mol,
-                method=vqe_optimizer,
-                convergence_threshold=geoopt_convergence_threshold,
-                step_method="backtracking",
-                max_iterations=max_geoopt_iterations,
-                options={"maxiter": max_vqe_iterations},
-                # Two stage optimization
-                use_two_stage_vqe=False,
-                stage1_maxiter=150,
-                stage2_maxiter=100,
-                ncas=ncas,
-                nelecas=nelecas,
-                mapping_method=mapping_method,
-            )
+        optimization.geometry_optimization_diatomic(
+            ansatz=ansatz,
+            backend=backend,
+            out_file=out_file,
+            mol=mol,
+            method=vqe_optimizer,
+            convergence_threshold=geoopt_convergence_threshold,
+            step_method="backtracking",
+            max_iterations=max_geoopt_iterations,
+            options={"maxiter": max_vqe_iterations},
+            # Two stage optimization
+            use_two_stage_vqe=False,
+            stage1_maxiter=150,
+            stage2_maxiter=100,
+            ncas=ncas,
+            nelecas=nelecas,
+            mapping_method=mapping_method,
         )
     elif mol.natm == 3:
-        energies_h2o, geometries_h2o, optimal_params_h2o, optimal_geometry_h2o = (
-            optimization.geometry_optimization_triatomic(
-                ansatz=ansatz,
-                backend=backend,
-                out_file=out_file,
-                mol=mol,
-                max_iterations=max_geoopt_iterations,
-                convergence_threshold=geoopt_convergence_threshold,
-                method=vqe_optimizer,
-                step_size=0.05,
-                ncas=ncas,
-                nelecas=nelecas,
-                mapping_method=mapping_method,
-                options={"maxiter": max_vqe_iterations},
-            )
+        optimization.geometry_optimization_triatomic(
+            ansatz=ansatz,
+            backend=backend,
+            out_file=out_file,
+            mol=mol,
+            max_iterations=max_geoopt_iterations,
+            convergence_threshold=geoopt_convergence_threshold,
+            method=vqe_optimizer,
+            step_size=0.05,
+            ncas=ncas,
+            nelecas=nelecas,
+            mapping_method=mapping_method,
+            options={"maxiter": max_vqe_iterations},
         )
     else:
         raise ValueError(
