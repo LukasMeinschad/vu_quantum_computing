@@ -634,8 +634,7 @@ def geometry_optimization_diatomic(
     ansatz,
     backend,
     out_file,
-    atom_labels,
-    initial_distance,
+    mol,
     initial_params=None,
     max_iterations=36,
     convergence_threshold=1e-4,
@@ -647,10 +646,6 @@ def geometry_optimization_diatomic(
     stage1_maxiter=150,
     stage2_maxiter=100,
     # Molecule specific parameters
-    basis="sto-3g",
-    spin=0,
-    charge=0,
-    symmetry=True,
     ncas=2,
     nelecas=(1, 1),
     mapping_method="jordan_wigner",
@@ -662,8 +657,7 @@ def geometry_optimization_diatomic(
         ansatz: Qiskit QuantumCircuit object representing the ansatz
         backend: Qiskit backend (simulator or real device)
         out_file: Path to output file for logging results
-        atom_labels (list[str]): List of two atom symbols, e.g., ["H", "H"], ["Li", "H"], ["H", "F"]
-        initial_distance (float): Initial bond distance in Angstrom (required)
+        mol: PySCF Mole object containing molecule information (basis, spin, charge, symmetry, atoms, coordinates)
         initial_params: Initial parameter values for the ansatz
         max_iterations (int): Maximum number of optimization iterations
         convergence_threshold (float): Convergence threshold for gradient norm
@@ -673,16 +667,23 @@ def geometry_optimization_diatomic(
         use_two_stage_vqe (bool): Whether to use two-stage VQE optimization
         stage1_maxiter (int): Max iterations for stage 1 VQE
         stage2_maxiter (int): Max iterations for stage 2 VQE
-        basis (str): Basis set for quantum chemistry calculations
-        spin (int): Spin multiplicity of the molecule
-        charge (int): Charge of the molecule
-        symmetry (bool): Whether to use molecular symmetry
         ncas (int): Number of active space orbitals for CASCI
         nelecas (tuple): Number of active space electrons (alpha, beta) for CASCI
         mapping_method (str): Fermion-to-qubit mapping method
     """
     if initial_params is None:
         initial_params = 2 * np.pi * np.random.rand(ansatz.num_parameters)
+
+    # Extract molecule properties from mol object
+    basis = mol.basis
+    spin = mol.spin
+    charge = mol.charge
+    symmetry = mol.symmetry
+
+    # Extract atom labels and initial distance from mol
+    atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
+    coords = np.array([mol.atom[i][1] for i in range(mol.natm)])
+    initial_distance = np.linalg.norm(coords[1] - coords[0])
 
     current_params = initial_params.copy()
     current_distance = initial_distance
@@ -959,16 +960,15 @@ def geometry_optimization_triatomic(
     ansatz,
     backend,
     out_file,
-    atom_labels,
-    initial_geometry,
+    mol,
     initial_params=None,
     max_iterations=50,
     convergence_threshold=1e-4,
     method="COBYLA",
     step_size=0.05,
-    basis="sto-3g",
     ncas=4,
     nelecas=(2, 2),
+    mapping_method="jordan_wigner",
     options={"maxiter": 100},
 ):
     """
@@ -978,18 +978,15 @@ def geometry_optimization_triatomic(
         ansatz: Qiskit QuantumCircuit object representing the ansatz
         backend: Qiskit backend (simulator or real device)
         out_file: Path to output file for logging results
-        atom_labels: List of three atom symbols, e.g., ["O", "H", "H"]
-        initial_geometry: Dictionary with initial geometry parameters
-            For H2O: {"R1": 0.96, "R2": 0.96, "theta": 104.5}
-            For linear: {"R1": 1.0, "R2": 1.0}
+        mol: PySCF Mole object containing molecule information (basis, spin, charge, symmetry, atoms, coordinates)
         initial_params: Initial parameter values for the ansatz
         max_iterations: Maximum number of optimization iterations
         convergence_threshold: Convergence threshold for gradient norm
         method: Optimization method for circuit parameters
         step_size: Step size for geometry updates
-        basis: Basis set for quantum chemistry calculations
         ncas: Number of active space orbitals
         nelecas: Number of active space electrons (alpha, beta)
+        mapping_method: Fermion-to-qubit mapping method
         options: Options for the circuit parameter optimizer
 
     Returns:
@@ -1000,6 +997,30 @@ def geometry_optimization_triatomic(
     """
     if initial_params is None:
         initial_params = 2 * np.pi * np.random.rand(ansatz.num_parameters)
+
+    # Extract molecule properties from mol object
+    basis = mol.basis
+    spin = mol.spin
+    charge = mol.charge
+    symmetry = mol.symmetry
+
+    # Extract atom labels and initial geometry from mol
+    atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
+    coords = np.array([mol.atom[i][1] for i in range(mol.natm)])
+
+    # Calculate initial geometry parameters
+    vec1 = coords[1] - coords[0]
+    vec2 = coords[2] - coords[0]
+    R1 = np.linalg.norm(vec1)
+    R2 = np.linalg.norm(vec2)
+    cos_theta = np.dot(vec1, vec2) / (R1 * R2)
+    theta = np.arccos(np.clip(cos_theta, -1.0, 1.0)) * 180.0 / np.pi
+
+    initial_geometry = {
+        "R1": R1,
+        "R2": R2,
+        "theta": theta,
+    }
 
     current_params = initial_params.copy()
     current_geometry = initial_geometry.copy()
@@ -1037,7 +1058,7 @@ def geometry_optimization_triatomic(
             current_geometry, atom_labels, basis=basis, ncas=ncas, nelecas=nelecas
         )
         H_current = hamiltonian.build_hamiltonian(
-            ecore, h1e, h2e, mapping_method="jordan_wigner"
+            ecore, h1e, h2e, mapping_method=mapping_method
         )
 
         # Optimize circuit parameters for current geometry

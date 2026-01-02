@@ -149,17 +149,12 @@ if __name__ == "__main__":
 
     # Run Geometry Optimization
     if mol.natm == 2:
-        atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
-        coords = np.array([mol.atom[i][1] for i in range(mol.natm)])
-        initial_distance = np.linalg.norm(coords[1] - coords[0])
-
         energies, distances, optimal_params, optimal_distance = (
             optimization.geometry_optimization_diatomic(
                 ansatz=ansatz,
                 backend=backend,
                 out_file=out_file,
-                atom_labels=atom_labels,
-                initial_distance=initial_distance,
+                mol=mol,
                 method=vqe_optimizer,
                 convergence_threshold=geoopt_convergence_threshold,
                 step_method="backtracking",
@@ -169,52 +164,25 @@ if __name__ == "__main__":
                 use_two_stage_vqe=False,
                 stage1_maxiter=150,
                 stage2_maxiter=100,
-                # Molecule specific parameters
-                basis=basis,
-                spin=spin,
-                charge=charge,
-                symmetry=symmetry,
                 ncas=ncas,
                 nelecas=nelecas,
                 mapping_method=mapping_method,
             )
         )
     elif mol.natm == 3:
-        atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
-        coords = np.array([mol.atom[i][1] for i in range(mol.natm)])
-
-        vec1 = coords[1] - coords[0]
-        vec2 = coords[2] - coords[0]
-
-        R1 = np.linalg.norm(vec1)
-        R2 = np.linalg.norm(vec2)
-
-        # Calculate bond angle at central atom (angle 1-0-2)
-        cos_theta = np.dot(vec1, vec2) / (R1 * R2)
-        theta = (
-            np.arccos(np.clip(cos_theta, -1.0, 1.0)) * 180.0 / np.pi
-        )  # Convert to degrees
-
-        initial_geometry = {
-            "R1": R1,
-            "R2": R2,
-            "theta": theta,
-        }
-
         energies_h2o, geometries_h2o, optimal_params_h2o, optimal_geometry_h2o = (
             optimization.geometry_optimization_triatomic(
                 ansatz=ansatz,
                 backend=backend,
                 out_file=out_file,
-                atom_labels=atom_labels,
-                initial_geometry=initial_geometry,
+                mol=mol,
                 max_iterations=max_geoopt_iterations,
                 convergence_threshold=geoopt_convergence_threshold,
                 method=vqe_optimizer,
                 step_size=0.05,
-                basis=basis,
                 ncas=ncas,
                 nelecas=nelecas,
+                mapping_method=mapping_method,
                 options={"maxiter": max_vqe_iterations},
             )
         )
