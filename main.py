@@ -11,12 +11,9 @@ import modules.args as args
 
 if __name__ == "__main__":
 
-
-    # Parse Command-Line Arguments 
     cli_args = args.parse_arguments()
-
-    # Set out file
     out_file = "results.log"
+
     if cli_args.molecule == "H2":
         input_geom = "./test_molecules/h2.xyz"
         spin = 0
@@ -29,10 +26,10 @@ if __name__ == "__main__":
         ansatz_type = "efficient_su2"
         reps = 1 # Number of repetitions for the ansatz
         entanglement = "linear" # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
+        vqe_optimizer = "Powell"  # Optimizer choice for VQE
         max_vqe_iterations = 200
         max_geoopt_iterations = 20
-        geoopt_convergence_threshold = 1e-4
+        geoopt_convergence_threshold = 1e-2
         hf_initial_state = True
 
     elif cli_args.molecule == "LiH":
@@ -90,7 +87,6 @@ if __name__ == "__main__":
         geoopt_convergence_threshold = 1e-3
         hf_initial_state = True
 
-    
 
     backend = AerSimulator()
 

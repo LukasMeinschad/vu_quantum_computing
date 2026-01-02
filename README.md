@@ -10,3 +10,4 @@ Install the following Python packages:
 - qiskit-aqt-provider
 - pyscf
 - matplotlib
+- pylatexenc

@@ -118,7 +118,7 @@ def vqe_single_point(
     return result, energy_history
 
 
-def vqe_single_point_optimized(
+def vqe_single_point_two_step(
     ansatz,
     H,
     backend,
@@ -130,7 +130,7 @@ def vqe_single_point_optimized(
     stage2_options={"maxiter": 50, "ftol": 1e-5, "xtol": 1e-5},
 ):
     """
-    Optimized VQE single point function with a two stage optimization process
+    VQE single point calculation with a two stage optimization process
 
     + Stage 1: COBYLA for rough optimization
     + Stage 2: Powell for fine optimization

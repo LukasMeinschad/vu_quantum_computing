@@ -88,7 +88,7 @@ def run_scf_calculation(mol, method="RHF", verbose=False):
 
 
 def ham_terms_diatomic(
-        x: float, 
+        distance: float, 
         atom1: str = "H", 
         atom2: str = "H",
         basis: str = "sto-3g",
@@ -102,7 +102,7 @@ def ham_terms_diatomic(
     Build Hamiltonian terms for a diatomic molecule based on bond distance x (in Angstrom)
 
     Args:
-        x (float): Bond distance in Angstrom
+        distance (float): Bond distance in Angstrom
         atom1 (str): Symbol of first atom
         atom2 (str): Symbol of second atom
         basis (str): Basis set for calculation
@@ -114,19 +114,14 @@ def ham_terms_diatomic(
 
     
     """
-    distance = x
-    a = distance / 2
-
-
-
     mol = gto.Mole()
     mol.build(
        verbose=0,
        atom=[
-           [atom1, (0.0, 0.0, -a)],
-           [atom2, (0.0, 0.0, a)],
+           [atom1, (0.0, 0.0, 0.0)],
+           [atom2, (0.0, 0.0, distance)],
        ],
-         basis=basis,
+        basis=basis,
         spin=spin,
         charge=charge,
         symmetry=symmetry,
