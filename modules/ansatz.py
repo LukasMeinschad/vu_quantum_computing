@@ -73,7 +73,7 @@ def create_pauli_two_design_ansatz(num_qubits, reps=2, entanglement="full", init
 
     return ansatz
 
-def creeate_hardware_efficient_ansatz(num_qubits, reps=2, entanglement="full", initial_state=None):
+def create_hardware_efficient_ansatz(num_qubits, reps=2, entanglement="full", initial_state=None):
     """
     Create a Hardware Efficient ansatz circuit for VQE
 
@@ -116,7 +116,7 @@ def create_ansatz(num_qubits,
     elif ansatz_type == "pauli_two_design":
         ansatz = create_pauli_two_design_ansatz(num_qubits, reps=reps, entanglement=entanglement, initial_state=initial_state)
     elif ansatz_type == "efficient_su2":
-        ansatz = creeate_hardware_efficient_ansatz(num_qubits, reps=reps, entanglement=entanglement, initial_state=initial_state)
+        ansatz = create_hardware_efficient_ansatz(num_qubits, reps=reps, entanglement=entanglement, initial_state=initial_state)
     else:
         raise ValueError(f"Unsupported ansatz type: {ansatz_type}")
     return ansatz
