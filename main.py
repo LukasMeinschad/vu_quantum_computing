@@ -30,7 +30,7 @@ if __name__ == "__main__":
         max_vqe_iterations = 200
         max_geoopt_iterations = 50
         geoopt_convergence_threshold = 1e-4
-        hf_initial_state = False
+        hf_initial_state = True
 
     elif cli_args.molecule == "LiH":
         input_geom = "./test_molecules/lih.xyz"
@@ -167,10 +167,10 @@ if __name__ == "__main__":
             backend=backend,
             out_file=out_file,
             mol=mol,
-            distance_range=(0.5, 1.5),
-            num_points=10,
+            distance_range=(0.6, 0.9),
+            num_points=30,
             method=vqe_optimizer,
-            options={"maxiter": 200, "rhobeg": 0.3, "tol": 1e-7},
+            options={"maxiter": 200, "rhobeg": 1.2, "tol": 1e-9},
             ncas=ncas,
             nelecas=nelecas,
             mapping_method=mapping_method,
