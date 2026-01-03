@@ -38,7 +38,7 @@ def vqe_single_point(
     out_file,
     initial_params=None,
     method="COBYLA",
-    options={"maxiter": 100},
+    options={"tol":1e-6, "maxiter": 200},
 ):
     """
     Run VQE optimization using simulator or real backend
@@ -53,7 +53,7 @@ def vqe_single_point(
         options (dict): Options for the optimizer
     """
     if initial_params is None:
-        initial_params = 2 * np.pi * np.random.rand(ansatz.num_parameters)
+        initial_params = np.zeros(ansatz.num_parameters) # HF state 
 
     # Create simulator backend
     if backend is None:
@@ -263,22 +263,31 @@ def vqe_for_geometry(
     ansatz,
     backend,
     out_file,
+    mol,  # Hinzufügen des mol-Objekts
     initial_params=None,
     method="COBYLA",
     options={"maxiter": 100},
+    ncas=2,
+    nelecas=(1, 1),
+    mapping_method="jordan_wigner",
 ):
     """
-    Run VQE for H2 molecule at given bond distance
-
-    Args:
-        distance (float): Bond distance in Angstrom
-        ansatz: Qiskit QuantumCircuit object representing the ansatz
-        backend: Qiskit backend (simulator or real device)
-        initial_params: Initial parameter values for the ansatz
-        method (str): Optimization method (e.g., "COBYLA", "Nelder-Mead", etc.)
-        options (dict): Options for the optimizer
+    Run VQE for a diatomic molecule at a given bond distance.
     """
-    H = hamiltonian.build_hamiltonian_with_geometry(distance)
+    # Moleküleigenschaften aus dem mol-Objekt extrahieren
+    atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
+    
+    H = hamiltonian.build_hamiltonian_with_geometry(
+        distx=distance,
+        atom_labels=atom_labels,
+        basis=mol.basis,
+        spin=mol.spin,
+        charge=mol.charge,
+        symmetry=mol.symmetry,
+        ncas=ncas,
+        nelecas=nelecas,
+        mapping_method=mapping_method,
+    )
 
     result, _ = vqe_single_point(
         ansatz=ansatz,
@@ -296,40 +305,29 @@ def bond_scan(
     ansatz,
     backend,
     out_file,
+    mol,  # Hinzufügen des mol-Objekts
     distance_range=(0.5, 3.0),
     num_points=20,
     method="COBYLA",
-    options={"maxiter": 100},
+    options={"maxiter": 200, "rhobeg": 0.3}, # Robustere VQE-Optionen
+    ncas=2,
+    nelecas=(1, 1),
+    mapping_method="jordan_wigner",
 ):
     """
-    Perform the geometry optimization for H2 molecule over a range of bond distances
-
-    Args:
-        ansatz: Qiskit QuantumCircuit object representing the ansatz
-        backend: Qiskit backend (simulator or real device)
-        out_file: Path to output file for logging results
-        distance_range (tuple): Range of bond distances (min, max) in Angstrom
-        num_points (int): Number of points in the distance range
-        method (str): Optimization method (e.g., "COBYLA", "Nelder-Mead", etc.)
-        options (dict): Options for the optimizer
-
-        Returns:
-            distances: List of bond distances
-            energies: List of corresponding VQE energies
-            optimal_distance: Bond distance with minimum energy
-            optimal_energy: Minimum energy found
+    Perform a potential energy surface scan for a diatomic molecule.
     """
     distances = np.linspace(distance_range[0], distance_range[1], num_points)
     energies = []
 
     with open(out_file, "a") as f:
-        f.write("\n=== Bond Scan ===\n")
+        f.write("\n=== Bond Scan (Potential Energy Surface) ===\n")
         f.write(
             f"Scanning {num_points} points from {distance_range[0]} Å to {distance_range[1]} Å\n"
         )
 
-    # Use previous optimized parameters as initial guess for next point
-    initial_params = None
+    # Start with HF parameters (zeros) for the first point
+    initial_params = np.zeros(ansatz.num_parameters)
 
     for i, dist in enumerate(distances):
         with open(out_file, "a") as f:
@@ -341,57 +339,59 @@ def bond_scan(
                 ansatz=ansatz,
                 backend=backend,
                 out_file=out_file,
+                mol=mol, # mol-Objekt weitergeben
                 initial_params=initial_params,
                 method=method,
                 options=options,
+                ncas=ncas,
+                nelecas=nelecas,
+                mapping_method=mapping_method,
             )
             energies.append(energy)
-            initial_params = result.x  # Update initial params for next iteration
+            # Use the optimized parameters from the last point as the initial guess for the next
+            initial_params = result.x
             with open(out_file, "a") as f:
-                f.write(f"VQE Energy at {dist:.3f} Å: {energy:.6f} Ha\n")
+                f.write(f"VQE Energy at {dist:.3f} Å: {energy:.8f} Ha\n")
         except Exception as e:
             with open(out_file, "a") as f:
                 f.write(f"Error at distance {dist:.3f} Å: {e}\n")
             energies.append(None)
+            # Reset initial_params if a point fails
+            initial_params = np.zeros(ansatz.num_parameters)
 
     energies = np.array(energies, dtype=object)
-    # Find optimal geometry among successful points
     valid_idx = np.where(energies != None)[0]
 
     if valid_idx.size == 0:
-        # No successful VQE evaluations; log and raise a clear error
+        error_msg = "Bond scan failed: no valid VQE energies were obtained."
         with open(out_file, "a") as f:
-            f.write(
-                "\nGeometry optimization failed: no valid VQE energies were obtained for any distance.\n"
-            )
-        raise RuntimeError(
-            "Geometry optimization failed: no valid VQE energies were obtained for any distance."
-        )
+            f.write(f"\n{error_msg}\n")
+        raise RuntimeError(error_msg)
 
     min_idx = valid_idx[np.argmin(energies[valid_idx].astype(float))]
     optimal_distance = distances[min_idx]
     optimal_energy = float(energies[min_idx])
     with open(out_file, "a") as f:
         f.write(
-            f"\nOptimal bond distance: {optimal_distance:.3f} Å with energy {optimal_energy:.6f} Hartree\n"
+            f"\nOptimal bond distance from scan: {optimal_distance:.4f} Å with energy {optimal_energy:.8f} Hartree\n"
         )
 
     # Plot PES
     valid_distances = distances[valid_idx]
-    valid_energies = energies[valid_idx]
-    plt.figure(figsize=(8, 5))
-    plt.plot(valid_distances, valid_energies, marker="o")
+    valid_energies = energies[valid_idx].astype(float)
+    plt.figure(figsize=(10, 6))
+    plt.plot(valid_distances, valid_energies, marker="o", linestyle="-")
     plt.xlabel("Bond Distance / Å")
     plt.ylabel("Energy / Hartree")
-    plt.title("Potential Energy Surface of H2 Molecule")
-    plt.grid()
-    plt.savefig("images/h2_pes.png", dpi=300, bbox_inches="tight")
+    plt.title(f"Potential Energy Surface of {mol.atom_pure_symbol(0)}-{mol.atom_pure_symbol(1)}")
+    plt.grid(True)
+    plt.savefig("images/pes_scan.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     results = np.column_stack((distances, energies))
-    np.savetxt("bond_scan.dat", results, header="Distance(Angstrom) Energy(Hartree)")
+    np.savetxt("bond_scan_results.dat", results, header="Distance(Angstrom) Energy(Hartree)")
     with open(out_file, "a") as f:
-        f.write("Geometry optimization results saved to bond_scan.dat\n")
+        f.write("Bond scan results saved to bond_scan_results.dat\n")
 
     return distances, energies, optimal_distance, optimal_energy
 
@@ -464,7 +464,7 @@ def grad_geometry(
     backend,
     atom_labels,
     estimator=None,
-    delta=0.01,  # INCREASED: 0.01 is more stable for geometry gradients
+    delta=0.0053, 
     basis="sto-3g",
     spin=0,
     charge=0,
@@ -527,10 +527,10 @@ def grad_geometry(
     # Central difference
     gradient = (energy_plus - energy_minus) / (2 * delta)
 
-    #  print(f"    R = {distance:.6f} Å")
-    #  print(f"    E(R+δ) = {energy_plus:.8f} Ha at R={distance+delta:.6f} Å")
-    #  print(f"    E(R-δ) = {energy_minus:.8f} Ha at R={distance-delta:.6f} Å")
-    #  print(f"    dE/dR = {gradient:.8f} Ha/Å")
+    print(f"    R = {distance:.6f} Å")
+    print(f"    E(R+δ) = {energy_plus:.8f} Ha at R={distance+delta:.6f} Å")
+    print(f"    E(R-δ) = {energy_minus:.8f} Ha at R={distance-delta:.6f} Å")
+    print(f"    dE/dR = {gradient:.8f} Ha/Å")
 
     return gradient
 
@@ -1183,3 +1183,235 @@ def geometry_optimization_triatomic(
     plt.close()
 
     return energies, geometries, current_params, current_geometry
+
+
+"""  
+Joint Optimization Methods the main difference here is that we build a cost function
+that is both dependent on the geometry and the ansatz parameters and then evaluate the gradient of this thing
+
+they also do this in this paper 
+https://doi.org/10.48550/arXiv.2106.13840
+"""
+def joint_optimization_diatomic(
+        ansatz,
+        backend,
+        out_file,
+        mol,
+        initial_params=None,
+        initial_distance=None,
+        max_iterations=100,
+        convergence_threshold=1e-4,
+        learning_rate = 0.2,         # Parameter können sich schneller anpassen
+        learning_rate_geom = 0.05,   # Geometrie muss sich langsamer anpassen
+        ncas = 2,
+        nelecas = (1,1),
+        mapping_method="jordan_wigner",
+):
+    """  
+    Joint optimization of circuit parameters and geometries that avoids the nested VQE that we have above
+
+    Args:
+        ansatz: Qiskit QuantumCircuit object representing the ansatz
+        backend: Qiskit backend (simulator or real device)
+        out_file: Path to output file for logging results
+        mol: PySCF Mole object containing molecule information (basis, spin, charge, symmetry, atoms, coordinates)
+        initial_params: Initial parameter values for the ansatz
+        initial_distance: Initial bond distance in Angstrom
+        max_iterations: Maximum number of optimization iterations
+        convergence_threshold: Convergence threshold for gradient norm
+        learning_rate: Learning rate for circuit parameter updates
+        learning_rate_geom: Learning rate for geometry updates
+        ncas: Number of active space orbitals for CASCI
+        nelecas: Number of active space electrons (alpha, beta) for CASCI
+        mapping_method: Fermion-to-qubit mapping method
+    """
+    # KORREKTUR 1: Immer im Hartree-Fock-Zustand (Null-Parameter) starten
+    if initial_params is None:
+        initial_params = np.zeros(ansatz.num_parameters)
+
+    # Extract the molecule properties
+    basis = mol.basis
+    spin = mol.spin
+    charge = mol.charge
+    symmetry = mol.symmetry
+    atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
+
+    if initial_distance is None:
+        coords = np.array([mol.atom[i][1] for i in range(mol.natm)])
+        initial_distance = np.linalg.norm(coords[1] - coords[0])
+
+    current_params = initial_params.copy()
+    current_distance = initial_distance
+
+    # Setup backend and estimator
+    if backend is None:
+        backend = AerSimulator()
+    elif isinstance(backend, AerSimulator):
+        backend_sim = backend
+    else:
+        backend_sim = AerSimulator.from_backend(backend)
+    
+    estimator = BackendEstimatorV2(backend=backend_sim)
+
+    # Transpile the Ansatz
+    pm = generate_preset_pass_manager(optimization_level=3, backend=backend)
+    ansatz_isa = pm.run(ansatz)
+
+    # Storage section for results
+    energies = []
+    distances = []
+    params_history = []
+    params_gradients =  []
+    geom_gradients = []
+
+    with open(out_file,"a") as f:
+        f.write("\n === Joint Geometry Optimization (Parameters + Geometry) ===\n")
+        f.write(f"Initial bond distance: {initial_distance:.6f} Å\n")
+        f.write(f"Max iterations: {max_iterations}\n")
+        f.write(f"Convergence threshold: {convergence_threshold} Hartree\n")
+        f.write(f"Learning rate (params): {learning_rate}\n")
+        f.write(f"Learning rate (geometry): {learning_rate_geom}\n")
+
+    for iteration in range(max_iterations):
+        # Build the hamiltonian for the current geometry
+        H_current = hamiltonian.build_hamiltonian_with_geometry(
+            current_distance,
+            atom_labels=atom_labels,
+            basis=basis,
+            spin=spin,
+            charge=charge,
+            symmetry=symmetry,
+            ncas=ncas,
+            nelecas=nelecas,
+            mapping_method=mapping_method,
+        )
+        # Compute the current energy 
+        current_energy = cost_func(current_params, ansatz_isa, H_current, estimator)
+
+        # Compute gradient with to geometry using grad_geometry
+        grad_nuclear = grad_geometry(
+            current_params,
+            current_distance,
+            ansatz_isa,
+            backend,
+            atom_labels=atom_labels,
+            estimator=estimator,
+            basis=basis,
+            spin=spin,
+            charge=charge,
+            symmetry=symmetry,
+            ncas=ncas,
+            nelecas=nelecas,
+            mapping_method=mapping_method,
+        )
+        # Compute gradient with respect to parameters using parameter shift rule
+        grad_params = parameter_shift_gradient(
+            current_params,
+            ansatz_isa,
+            H_current,
+            estimator,
+        )
+        # Store the current results
+        energies.append(current_energy)
+        distances.append(current_distance)
+        params_history.append(current_params.copy())
+        params_gradients.append(grad_params.copy())
+        geom_gradients.append(grad_nuclear)
+
+        # Compute gradient norms as a check for convergence
+        grad_params_norm = np.linalg.norm(grad_params)
+        grad_geom_norm = abs(grad_nuclear)
+        total_grad_norm = np.sqrt(grad_params_norm**2 + grad_geom_norm**2)
+
+        # Log the progress
+        if iteration % 5 == 0:
+            with open(out_file,"a") as f:
+                f.write(f"Iteration {iteration}: E = {current_energy:.8f} Ha,")
+                f.write(f" bond length = {current_distance:.6f} Å,")
+                f.write(f" ||grad_params|| = {grad_params_norm:.6f},")
+                f.write(f" |grad_geom| = {grad_geom_norm:.6f},")
+                f.write(f" ||total_grad|| = {total_grad_norm:.6f}\n")
+        # Check for convergence
+        if total_grad_norm < convergence_threshold:
+            with open(out_file,"a") as f:
+                f.write(f"Converged at iteration {iteration} with energy {current_energy:.8f} Ha\n")
+            break
+        
+        # KORREKTUR 2: Gradienten-Clipping für Stabilität
+        grad_params_clipped = np.clip(grad_params, -1.0, 1.0)
+        grad_nuclear_clipped = np.clip(grad_nuclear, -1.0, 1.0)
+
+        # Update parameters and geometry using gradient descent
+        current_params -= learning_rate * grad_params_clipped
+        current_distance -= learning_rate_geom * grad_nuclear_clipped
+
+        # KORREKTUR 3: Sinnvolle Grenzen für den Abstand
+        current_distance = np.clip(current_distance, 0.4, 2.5)
+
+    # Final logging
+    with open(out_file,"a") as f:
+        f.write(f"\n Optimization completed in {iteration+1} iterations.\n")
+        f.write(f"Final bond distance: {current_distance:.6f} Å\n")
+        f.write(f"Final energy: {current_energy:.8f} Ha\n")
+
+    # Plot results
+    fig, axes = plt.subplots(2, 2, figsize=(12,10))
+    # Energy convergence
+    axes[0,0].plot(range(1,len(energies)+1), energies, marker="o")
+    axes[0,0].set_xlabel("Iteration")
+    axes[0,0].set_ylabel("Energy / Hartree")
+    axes[0,0].set_title("Energy Convergence")
+    axes[0,0].grid()
+    # Distance convergence
+    axes[0,1].plot(range(1,len(distances)+1), distances, marker="o", color="orange")
+    axes[0,1].set_xlabel("Iteration")
+    axes[0,1].set_ylabel("Bond Distance / Å")
+    axes[0,1].set_title("Bond Distance Convergence")
+    axes[0,1].grid()
+    # Parameter gradient norm convergence
+    param_grad_norms = [np.linalg.norm(g) for g in params_gradients]
+    axes[1,0].plot(range(1,len(param_grad_norms)+1), param_grad_norms, marker="o", color="green")
+    axes[1,0].set_xlabel("Iteration")
+    axes[1,0].set_ylabel("||grad_params||")
+    axes[1,0].set_title("Parameter Gradient Norm Convergence")
+    axes[1,0].grid()
+    # Geometry gradient convergence
+    axes[1,1].plot(range(1,len(geom_gradients)+1), geom_gradients, marker="o", color="red")
+    axes[1,1].set_xlabel("Iteration")
+    axes[1,1].set_ylabel("|grad_geom|")
+    axes[1,1].set_title("Geometry Gradient Convergence")
+    axes[1,1].grid()
+    plt.tight_layout()
+    plt.savefig("images/joint_geometry_optimization_convergence.png", dpi=300, bbox_inches="tight")
+    plt.close()
+    return energies, distances, current_params, distances[-1]
+
+def parameter_shift_gradient(
+        params,
+        ansatz,
+        H,
+        estimator,
+        shift = np.pi / 2,
+):
+    """
+    Computes the gradient of the cost function using the Parameter-Shift Rule
+
+    Given a cost function f = f(θ), the gradient with respect to a parameter θ_i is given by:
+        df/dθ_i = (f(θ + s) - f(θ - s)) / 2
+    where s is the shift amount (commonly π/2 for many gates).
+    """
+    gradient = np.zeros_like(params)
+    for i in range(len(params)):
+        # Compute all the partial derivatives
+        params_plus = params.copy()
+        params_plus[i] += shift
+        energy_plus = cost_func(params_plus, ansatz, H, estimator)
+
+        # Shift parameter backwards
+        params_minus = params.copy()
+        params_minus[i] -= shift
+        energy_minus = cost_func(params_minus, ansatz, H, estimator)
+
+        # Compute gradient
+        gradient[i] = (energy_plus - energy_minus) / (2* np.sin(shift))
+    return gradient

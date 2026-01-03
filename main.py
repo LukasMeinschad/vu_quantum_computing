@@ -24,13 +24,13 @@ if __name__ == "__main__":
         nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
         mapping_method = "jordan_wigner"
         ansatz_type = "efficient_su2"
-        reps = 1  # Number of repetitions for the ansatz
+        reps = 3  # Number of repetitions for the ansatz
         entanglement = "linear"  # Entanglement pattern for the ansatz
         vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
         max_vqe_iterations = 200
-        max_geoopt_iterations = 20
-        geoopt_convergence_threshold = 1e-2
-        hf_initial_state = True
+        max_geoopt_iterations = 50
+        geoopt_convergence_threshold = 1e-4
+        hf_initial_state = False
 
     elif cli_args.molecule == "LiH":
         input_geom = "./test_molecules/lih.xyz"
@@ -46,8 +46,8 @@ if __name__ == "__main__":
         entanglement = "full"  # Entanglement pattern for the ansatz
         vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
         max_vqe_iterations = 100
-        max_geoopt_iterations = 8
-        geoopt_convergence_threshold = 1e-3
+        max_geoopt_iterations = 50
+        geoopt_convergence_threshold = 1e-4
         hf_initial_state = True
 
     elif cli_args.molecule == "HF":
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         max_vqe_iterations = 100
         max_geoopt_iterations = 8
         geoopt_convergence_threshold = 1e-3
-        hf_initial_state = True
+        hf_initial_state = False
 
     elif cli_args.molecule == "H2O":
         input_geom = "./test_molecules/water.xyz"
@@ -149,24 +149,66 @@ if __name__ == "__main__":
 
     # Run Geometry Optimization
     if mol.natm == 2:
-        optimization.geometry_optimization_diatomic(
+
+     #   # Test VQE single point 
+     #   optimization.vqe_single_point(
+     #       ansatz=ansatz,
+     #       H = H_qubit,            
+     #       backend=backend,
+     #       out_file=out_file,
+     #       method = "COBYLA",
+     #   )
+
+        # Test VQE PES scan
+        optimization.bond_scan(
             ansatz=ansatz,
             backend=backend,
             out_file=out_file,
             mol=mol,
-            method=vqe_optimizer,
-            convergence_threshold=geoopt_convergence_threshold,
-            step_method="backtracking",
-            max_iterations=max_geoopt_iterations,
-            options={"maxiter": max_vqe_iterations},
-            # Two stage optimization
-            use_two_stage_vqe=False,
-            stage1_maxiter=150,
-            stage2_maxiter=100,
-            ncas=ncas,
-            nelecas=nelecas,
-            mapping_method=mapping_method,
+            distance_range = (0.5,1.5),
+            num_points = 10,
+            method = vqe_optimizer,
+            ncas = ncas,
+            nelecas = nelecas,
+            mapping_method = mapping_method,
         )
+
+        # Try out the joint optimization method for diatomics
+        optimization.joint_optimization_diatomic(
+            ansatz=ansatz,
+            backend=backend,
+            out_file=out_file,
+            mol=mol,
+            initial_params = None,
+            initial_distance = None,
+            max_iterations = max_geoopt_iterations,
+            convergence_threshold = geoopt_convergence_threshold,
+            learning_rate = 0.1, # For circuit parameters
+            learning_rate_geom = 0.01, # For geometry parameter
+            ncas = ncas,
+            nelecas = nelecas,
+            mapping_method = mapping_method,
+        )
+
+
+    #    optimization.geometry_optimization_diatomic(
+    #        ansatz=ansatz,
+    #        backend=backend,
+    #        out_file=out_file,
+    #        mol=mol,
+    #        method=vqe_optimizer,
+    #        convergence_threshold=geoopt_convergence_threshold,
+    #        step_method="backtracking",
+    #        max_iterations=max_geoopt_iterations,
+    #        options={"maxiter": max_vqe_iterations},
+    #        # Two stage optimization
+    #        use_two_stage_vqe=False,
+    #        stage1_maxiter=150,
+    #        stage2_maxiter=100,
+    #        ncas=ncas,
+    #        nelecas=nelecas,
+    #        mapping_method=mapping_method,
+    #    )
     elif mol.natm == 3:
         optimization.geometry_optimization_triatomic(
             ansatz=ansatz,
