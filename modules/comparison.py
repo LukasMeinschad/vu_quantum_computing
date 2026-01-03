@@ -43,6 +43,7 @@ def run_single_point_comparison(mf, backend, out_file, molecule="H2"):
         H_qubit_hf,
         backend,
         out_file=out_file,
+        initial_params=None,
         method="COBYLA",
         options={"maxiter": 100},
     )
@@ -67,6 +68,7 @@ def run_single_point_comparison(mf, backend, out_file, molecule="H2"):
         H_qubit_cas,
         backend,
         out_file=out_file,
+        initial_params=None,
         method="COBYLA",
         options={"maxiter": 100},
     )
@@ -147,9 +149,9 @@ def initial_parameters_influence(mf, backend, out_file, molecule="H2"):
             H_qubit,
             backend,
             out_file=out_file,
-            method="COBYLA",
-            options={"maxiter": 100},
             initial_params=initial_params,
+            method="COBYLA",
+            options={"maxiter": 100}
         )
         results[f"Initial Params Set {idx+1}"] = (vqe_result, energy_history)
     # Plot energy convergence for different initial parameters
@@ -199,6 +201,7 @@ def influence_ansatz_depth(mf, backend, out_file, molecule="H2"):
             H_qubit,
             backend,
             out_file=out_file,
+            initial_params=None,
             method="COBYLA",
             options={"maxiter": 100},
         )
@@ -262,6 +265,7 @@ def influence_optimizer_choice(mf, backend, out_file, molecule="H2"):
             H_qubit,
             backend,
             out_file=out_file,
+            initial_params=None,
             method=optimizer,
             options={"maxiter": 100},
         )

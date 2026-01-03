@@ -156,7 +156,9 @@ if __name__ == "__main__":
         #     H = H_qubit,
         #     backend=backend,
         #     out_file=out_file,
+        #     initial_params=None,
         #     method = "COBYLA",
+        #     options={"maxiter": 100}
         # )
 
         # Test VQE PES scan

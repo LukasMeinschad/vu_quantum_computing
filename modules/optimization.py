@@ -36,9 +36,9 @@ def vqe_single_point(
     H,
     backend,
     out_file,
-    initial_params=None,
-    method="COBYLA",
-    options={"tol": 1e-6, "maxiter": 200},
+    initial_params,
+    method,
+    options,
 ):
     """
     Run VQE optimization using simulator or real backend
@@ -55,21 +55,18 @@ def vqe_single_point(
     if initial_params is None:
         initial_params = np.zeros(ansatz.num_parameters)  # HF state
 
-    # Create simulator backend
     if backend is None:
         backend = AerSimulator()
     elif isinstance(backend, AerSimulator):
         backend_sim = backend
     else:
-        # Real backend, create simulator
         backend_sim = AerSimulator.from_backend(backend)
 
     estimator = BackendEstimatorV2(backend=backend_sim)
 
-    # Transpile the ansatz for the backend
     pm = generate_preset_pass_manager(
         optimization_level=3, backend=backend
-    )  # Make Optimized Circuit, with longer transpile time
+    )
     ansatz_isa = pm.run(ansatz)
 
     with open(out_file, "a") as f:
@@ -79,7 +76,6 @@ def vqe_single_point(
         f.write(f"Initial parameters shape: {initial_params.shape}\n")
         f.write(f"Number of Ansatz parameters: {ansatz.num_parameters}\n")
 
-    # Track optimization progress
     iteration_count = [0]
     energy_history = []
 
@@ -88,7 +84,6 @@ def vqe_single_point(
         energy = cost_func(xk, ansatz_isa, H, estimator)
         energy_history.append(energy)
         if iteration_count[0] % 10 == 0:
-            # Log every 10 iterations to output file
             with open(out_file, "a") as f:
                 f.write(
                     f"Iteration {iteration_count[0]}: Energy = {energy:.6f} Hartree\n"
