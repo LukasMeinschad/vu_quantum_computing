@@ -308,14 +308,14 @@ def bond_scan(
     ansatz,
     backend,
     out_file,
-    mol,  # Hinzufügen des mol-Objekts
-    distance_range=(0.5, 3.0),
-    num_points=20,
-    method="COBYLA",
-    options={"maxiter": 200, "rhobeg": 0.3},  # Robustere VQE-Optionen
-    ncas=2,
-    nelecas=(1, 1),
-    mapping_method="jordan_wigner",
+    mol,
+    distance_range,
+    num_points,
+    method,
+    options,
+    ncas,
+    nelecas,
+    mapping_method,
 ):
     """
     Perform a potential energy surface scan for a diatomic molecule.
@@ -342,7 +342,7 @@ def bond_scan(
                 ansatz=ansatz,
                 backend=backend,
                 out_file=out_file,
-                mol=mol,  # mol-Objekt weitergeben
+                mol=mol,
                 initial_params=initial_params,
                 method=method,
                 options=options,

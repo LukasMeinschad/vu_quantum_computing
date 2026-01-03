@@ -150,30 +150,31 @@ if __name__ == "__main__":
     # Run Geometry Optimization
     if mol.natm == 2:
 
-        #   # Test VQE single point
-        #   optimization.vqe_single_point(
-        #       ansatz=ansatz,
-        #       H = H_qubit,
-        #       backend=backend,
-        #       out_file=out_file,
-        #       method = "COBYLA",
-        #   )
-
-        # Test VQE PES scan
-        # optimization.bond_scan(
+        # Test VQE single point
+        # optimization.vqe_single_point(
         #     ansatz=ansatz,
+        #     H = H_qubit,
         #     backend=backend,
         #     out_file=out_file,
-        #     mol=mol,
-        #     distance_range=(0.5, 1.5),
-        #     num_points=10,
-        #     method=vqe_optimizer,
-        #     ncas=ncas,
-        #     nelecas=nelecas,
-        #     mapping_method=mapping_method,
+        #     method = "COBYLA",
         # )
 
-        # # Try out the joint optimization method for diatomics
+        # Test VQE PES scan
+        optimization.bond_scan(
+            ansatz=ansatz,
+            backend=backend,
+            out_file=out_file,
+            mol=mol,
+            distance_range=(0.5, 1.5),
+            num_points=10,
+            method=vqe_optimizer,
+            options={"maxiter": 200, "rhobeg": 0.3, "tol": 1e-7},
+            ncas=ncas,
+            nelecas=nelecas,
+            mapping_method=mapping_method,
+        )
+
+        # Try out the joint optimization method for diatomics
         # optimization.joint_optimization_diatomic(
         #     ansatz=ansatz,
         #     backend=backend,
@@ -190,24 +191,25 @@ if __name__ == "__main__":
         #     mapping_method=mapping_method,
         # )
 
-       optimization.geometry_optimization_diatomic(
-           ansatz=ansatz,
-           backend=backend,
-           out_file=out_file,
-           mol=mol,
-           method=vqe_optimizer,
-           convergence_threshold=geoopt_convergence_threshold,
-           step_method="backtracking",
-           max_iterations=max_geoopt_iterations,
-           options={"maxiter": max_vqe_iterations},
-           # Two stage optimization
-           use_two_stage_vqe=False,
-           stage1_maxiter=150,
-           stage2_maxiter=100,
-           ncas=ncas,
-           nelecas=nelecas,
-           mapping_method=mapping_method,
-       )
+        # optimization.geometry_optimization_diatomic(
+        #     ansatz=ansatz,
+        #     backend=backend,
+        #     out_file=out_file,
+        #     mol=mol,
+        #     method=vqe_optimizer,
+        #     convergence_threshold=geoopt_convergence_threshold,
+        #     step_method="backtracking",
+        #     max_iterations=max_geoopt_iterations,
+        #     options={"maxiter": max_vqe_iterations},
+        #     # Two stage optimization
+        #     use_two_stage_vqe=False,
+        #     stage1_maxiter=150,
+        #     stage2_maxiter=100,
+        #     ncas=ncas,
+        #     nelecas=nelecas,
+        #     mapping_method=mapping_method,
+        # )
+
     elif mol.natm == 3:
         optimization.geometry_optimization_triatomic(
             ansatz=ansatz,
