@@ -263,13 +263,13 @@ def vqe_for_geometry(
     ansatz,
     backend,
     out_file,
-    mol,  # Hinzufügen des mol-Objekts
-    initial_params=None,
-    method="COBYLA",
-    options={"maxiter": 100},
-    ncas=2,
-    nelecas=(1, 1),
-    mapping_method="jordan_wigner",
+    mol,
+    initial_params,
+    method,
+    options,
+    ncas,
+    nelecas,
+    mapping_method,
 ):
     """
     Run VQE for a diatomic molecule at a given bond distance.
