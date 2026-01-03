@@ -87,15 +87,15 @@ def run_scf_calculation(mol, method="RHF", verbose=False):
     return mf
 
 
-def ham_terms_diatomic(
-        distance: float, 
-        atom_labels: list[str],
-        basis: str = "sto-3g",
-        spin: int = 0,
-        charge: int = 0,
-        symmetry: bool = True,
-        ncas: int = 2,
-        nelecas: tuple = (1, 1),
+def build_fermionic_hamiltonian_diatomic(
+    distance: float,
+    atom_labels: list[str],
+    basis: str,
+    spin: int,
+    charge: int,
+    symmetry: bool,
+    ncas: int,
+    nelecas: tuple,
 ):
     """
     Build Hamiltonian terms for a diatomic molecule based on bond distance x (in Angstrom)
@@ -110,15 +110,15 @@ def ham_terms_diatomic(
         ncas (int): Number of active space orbitals
         nelecas (tuple): Number of active space electrons (alpha, beta)
 
-    
+
     """
     mol = gto.Mole()
     mol.build(
-       verbose=0,
-       atom=[
-           [atom_labels[0], (0.0, 0.0, 0.0)],
-           [atom_labels[1], (0.0, 0.0, distance)],
-       ],
+        verbose=0,
+        atom=[
+            [atom_labels[0], (0.0, 0.0, 0.0)],
+            [atom_labels[1], (0.0, 0.0, distance)],
+        ],
         basis=basis,
         spin=spin,
         charge=charge,
@@ -134,49 +134,7 @@ def ham_terms_diatomic(
     return get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
 
 
-def build_hamiltonian_with_geometry(
-        distx: float,
-        atom_labels: list[str],
-        basis: str,
-        spin: int,
-        charge: int,
-        symmetry: bool,
-        ncas: int,
-        nelecas: tuple,
-        mapping_method: str,
-        ) -> SparsePauliOp:
-    """
-    Build the qubit Hamiltonian for a diatomic molecule and a given bond distance
-
-    Args:
-        distx (float): Bond distance in Angstrom
-        atom_labels: List of two atom symbols, e.g., ["H", "H"]
-        basis (str): Basis set for calculation
-        spin (int): Spin multiplicity
-        charge (int): Molecular charge
-        symmetry (bool): Whether to use molecular symmetry
-        ncas (int): Number of active space orbitals
-        nelecas (tuple): Number of active space electrons (alpha, beta) 
-        mapping_method (str): Qubit mapping method ("jordan_wigner" or "bravyi_kitaev")
-    
-    Returns:
-        Qubit Hamiltonian as SparsePauliOp
-    """
-    ecore, h1e, h2e = ham_terms_diatomic(
-        distx,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
-    )
-
-    return build_hamiltonian(ecore, h1e, h2e, mapping_method=mapping_method)
-
-
-def build_hamiltonian(
+def build_qubit_hamiltonian(
     ecore: float, h1e: np.ndarray, h2e: np.ndarray, mapping_method="jordan_wigner"
 ) -> SparsePauliOp:
     """
@@ -231,8 +189,7 @@ def build_hamiltonian(
         # Square operator
         H += 0.5 * (Lg @ Lg)
 
-    H = H.chop().simplify() 
-
+    H = H.chop().simplify()
 
     # Combine like terms and remove small coefficients
     return H.chop().simplify()

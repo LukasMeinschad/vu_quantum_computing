@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # comparison.compare_mappings(ecore, h1e, h2e, out_file)
 
     # Build Qubit Hamiltonian
-    H_qubit = hamiltonian.build_hamiltonian(ecore, h1e, h2e, mapping_method)
+    H_qubit = hamiltonian.build_qubit_hamiltonian(ecore, h1e, h2e, mapping_method)
     hamiltonian.write_qubit_hamiltonian_out(H_qubit, out_file)
 
     # Create Ansatz Circuit
@@ -150,65 +150,64 @@ if __name__ == "__main__":
     # Run Geometry Optimization
     if mol.natm == 2:
 
-     #   # Test VQE single point 
-     #   optimization.vqe_single_point(
-     #       ansatz=ansatz,
-     #       H = H_qubit,            
-     #       backend=backend,
-     #       out_file=out_file,
-     #       method = "COBYLA",
-     #   )
+        #   # Test VQE single point
+        #   optimization.vqe_single_point(
+        #       ansatz=ansatz,
+        #       H = H_qubit,
+        #       backend=backend,
+        #       out_file=out_file,
+        #       method = "COBYLA",
+        #   )
 
         # Test VQE PES scan
-        optimization.bond_scan(
-            ansatz=ansatz,
-            backend=backend,
-            out_file=out_file,
-            mol=mol,
-            distance_range = (0.5,1.5),
-            num_points = 10,
-            method = vqe_optimizer,
-            ncas = ncas,
-            nelecas = nelecas,
-            mapping_method = mapping_method,
-        )
+        # optimization.bond_scan(
+        #     ansatz=ansatz,
+        #     backend=backend,
+        #     out_file=out_file,
+        #     mol=mol,
+        #     distance_range=(0.5, 1.5),
+        #     num_points=10,
+        #     method=vqe_optimizer,
+        #     ncas=ncas,
+        #     nelecas=nelecas,
+        #     mapping_method=mapping_method,
+        # )
 
-        # Try out the joint optimization method for diatomics
-        optimization.joint_optimization_diatomic(
-            ansatz=ansatz,
-            backend=backend,
-            out_file=out_file,
-            mol=mol,
-            initial_params = None,
-            initial_distance = None,
-            max_iterations = max_geoopt_iterations,
-            convergence_threshold = geoopt_convergence_threshold,
-            learning_rate = 0.1, # For circuit parameters
-            learning_rate_geom = 0.01, # For geometry parameter
-            ncas = ncas,
-            nelecas = nelecas,
-            mapping_method = mapping_method,
-        )
+        # # Try out the joint optimization method for diatomics
+        # optimization.joint_optimization_diatomic(
+        #     ansatz=ansatz,
+        #     backend=backend,
+        #     out_file=out_file,
+        #     mol=mol,
+        #     initial_params=None,
+        #     initial_distance=None,
+        #     max_iterations=max_geoopt_iterations,
+        #     convergence_threshold=geoopt_convergence_threshold,
+        #     learning_rate=0.1,  # For circuit parameters
+        #     learning_rate_geom=0.01,  # For geometry parameter
+        #     ncas=ncas,
+        #     nelecas=nelecas,
+        #     mapping_method=mapping_method,
+        # )
 
-
-    #    optimization.geometry_optimization_diatomic(
-    #        ansatz=ansatz,
-    #        backend=backend,
-    #        out_file=out_file,
-    #        mol=mol,
-    #        method=vqe_optimizer,
-    #        convergence_threshold=geoopt_convergence_threshold,
-    #        step_method="backtracking",
-    #        max_iterations=max_geoopt_iterations,
-    #        options={"maxiter": max_vqe_iterations},
-    #        # Two stage optimization
-    #        use_two_stage_vqe=False,
-    #        stage1_maxiter=150,
-    #        stage2_maxiter=100,
-    #        ncas=ncas,
-    #        nelecas=nelecas,
-    #        mapping_method=mapping_method,
-    #    )
+       optimization.geometry_optimization_diatomic(
+           ansatz=ansatz,
+           backend=backend,
+           out_file=out_file,
+           mol=mol,
+           method=vqe_optimizer,
+           convergence_threshold=geoopt_convergence_threshold,
+           step_method="backtracking",
+           max_iterations=max_geoopt_iterations,
+           options={"maxiter": max_vqe_iterations},
+           # Two stage optimization
+           use_two_stage_vqe=False,
+           stage1_maxiter=150,
+           stage2_maxiter=100,
+           ncas=ncas,
+           nelecas=nelecas,
+           mapping_method=mapping_method,
+       )
     elif mol.natm == 3:
         optimization.geometry_optimization_triatomic(
             ansatz=ansatz,

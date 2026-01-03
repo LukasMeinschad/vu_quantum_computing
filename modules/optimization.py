@@ -38,7 +38,7 @@ def vqe_single_point(
     out_file,
     initial_params=None,
     method="COBYLA",
-    options={"tol":1e-6, "maxiter": 200},
+    options={"tol": 1e-6, "maxiter": 200},
 ):
     """
     Run VQE optimization using simulator or real backend
@@ -53,7 +53,7 @@ def vqe_single_point(
         options (dict): Options for the optimizer
     """
     if initial_params is None:
-        initial_params = np.zeros(ansatz.num_parameters) # HF state 
+        initial_params = np.zeros(ansatz.num_parameters)  # HF state
 
     # Create simulator backend
     if backend is None:
@@ -276,9 +276,9 @@ def vqe_for_geometry(
     """
     # Moleküleigenschaften aus dem mol-Objekt extrahieren
     atom_labels = [mol.atom_symbol(i) for i in range(mol.natm)]
-    
-    H = hamiltonian.build_hamiltonian_with_geometry(
-        distx=distance,
+
+    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+        distance,
         atom_labels=atom_labels,
         basis=mol.basis,
         spin=mol.spin,
@@ -286,7 +286,10 @@ def vqe_for_geometry(
         symmetry=mol.symmetry,
         ncas=ncas,
         nelecas=nelecas,
-        mapping_method=mapping_method,
+    )
+
+    H = hamiltonian.build_qubit_hamiltonian(
+        ecore, h1e, h2e, mapping_method=mapping_method
     )
 
     result, _ = vqe_single_point(
@@ -309,7 +312,7 @@ def bond_scan(
     distance_range=(0.5, 3.0),
     num_points=20,
     method="COBYLA",
-    options={"maxiter": 200, "rhobeg": 0.3}, # Robustere VQE-Optionen
+    options={"maxiter": 200, "rhobeg": 0.3},  # Robustere VQE-Optionen
     ncas=2,
     nelecas=(1, 1),
     mapping_method="jordan_wigner",
@@ -339,7 +342,7 @@ def bond_scan(
                 ansatz=ansatz,
                 backend=backend,
                 out_file=out_file,
-                mol=mol, # mol-Objekt weitergeben
+                mol=mol,  # mol-Objekt weitergeben
                 initial_params=initial_params,
                 method=method,
                 options=options,
@@ -383,13 +386,17 @@ def bond_scan(
     plt.plot(valid_distances, valid_energies, marker="o", linestyle="-")
     plt.xlabel("Bond Distance / Å")
     plt.ylabel("Energy / Hartree")
-    plt.title(f"Potential Energy Surface of {mol.atom_pure_symbol(0)}-{mol.atom_pure_symbol(1)}")
+    plt.title(
+        f"Potential Energy Surface of {mol.atom_pure_symbol(0)}-{mol.atom_pure_symbol(1)}"
+    )
     plt.grid(True)
     plt.savefig("images/pes_scan.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     results = np.column_stack((distances, energies))
-    np.savetxt("bond_scan_results.dat", results, header="Distance(Angstrom) Energy(Hartree)")
+    np.savetxt(
+        "bond_scan_results.dat", results, header="Distance(Angstrom) Energy(Hartree)"
+    )
     with open(out_file, "a") as f:
         f.write("Bond scan results saved to bond_scan_results.dat\n")
 
@@ -431,28 +438,37 @@ def finite_diff_hamiltonian(
         nelecas (tuple): Number of active space electrons (alpha, beta)
         mapping_method (str): Fermion-to-qubit mapping method
     """
-    H_plus = hamiltonian.build_hamiltonian_with_geometry(
-        distance + delta,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
-        mapping_method=mapping_method,
+    
+    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+    distance + delta,
+    atom_labels=atom_labels,
+    basis=basis,
+    spin=spin,
+    charge=charge,
+    symmetry=symmetry,
+    ncas=ncas,
+    nelecas=nelecas,
     )
-    H_minus = hamiltonian.build_hamiltonian_with_geometry(
-        distance - delta,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
-        mapping_method=mapping_method,
+
+    H_plus = hamiltonian.build_qubit_hamiltonian(
+        ecore, h1e, h2e, mapping_method=mapping_method
     )
+    
+    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+    distance - delta,
+    atom_labels=atom_labels,
+    basis=basis,
+    spin=spin,
+    charge=charge,
+    symmetry=symmetry,
+    ncas=ncas,
+    nelecas=nelecas,
+    )
+
+    H_minus = hamiltonian.build_qubit_hamiltonian(
+        ecore, h1e, h2e, mapping_method=mapping_method
+    )
+
     dH_ddistance = (H_plus - H_minus) / (2 * delta)
     return dH_ddistance
 
@@ -464,7 +480,7 @@ def grad_geometry(
     backend,
     atom_labels,
     estimator=None,
-    delta=0.0053, 
+    delta=0.0053,
     basis="sto-3g",
     spin=0,
     charge=0,
@@ -497,31 +513,40 @@ def grad_geometry(
         estimator = BackendEstimatorV2(backend=backend_sim)
 
     # Compute energy at R + delta
-    H_plus = hamiltonian.build_hamiltonian_with_geometry(
-        distance + delta,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
-        mapping_method=mapping_method,
+    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+    distance + delta,
+    atom_labels=atom_labels,
+    basis=basis,
+    spin=spin,
+    charge=charge,
+    symmetry=symmetry,
+    ncas=ncas,
+    nelecas=nelecas,
     )
+
+    H_plus = hamiltonian.build_qubit_hamiltonian(
+        ecore, h1e, h2e, mapping_method=mapping_method
+    )
+
     energy_plus = cost_func(params, ansatz, H_plus, estimator)
 
     # Compute energy at R - delta
-    H_minus = hamiltonian.build_hamiltonian_with_geometry(
-        distance - delta,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
-        mapping_method=mapping_method,
+
+    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+    distance - delta,
+    atom_labels=atom_labels,
+    basis=basis,
+    spin=spin,
+    charge=charge,
+    symmetry=symmetry,
+    ncas=ncas,
+    nelecas=nelecas,
     )
+
+    H_minus = hamiltonian.build_qubit_hamiltonian(
+        ecore, h1e, h2e, mapping_method=mapping_method
+    )
+
     energy_minus = cost_func(params, ansatz, H_minus, estimator)
 
     # Central difference
@@ -583,17 +608,21 @@ def line_search_backtracking(
         mapping_method (str): Fermion-to-qubit mapping method
     """
     # BUILD WITH ALL PARAMETERS
-    H_current = hamiltonian.build_hamiltonian_with_geometry(
-        distance,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
-        mapping_method=mapping_method,
+    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+    distance,
+    atom_labels=atom_labels,
+    basis=basis,
+    spin=spin,
+    charge=charge,
+    symmetry=symmetry,
+    ncas=ncas,
+    nelecas=nelecas,
     )
+
+    H_current = hamiltonian.build_qubit_hamiltonian(
+        ecore, h1e, h2e, mapping_method=mapping_method
+    )
+
     energy_current = cost_func(params, ansatz, H_current, estimator)
 
     step = initial_step
@@ -608,17 +637,21 @@ def line_search_backtracking(
             continue
 
         # BUILD WITH ALL PARAMETERS
-        H_new = hamiltonian.build_hamiltonian_with_geometry(
-            distance_new,
-            atom_labels=atom_labels,
-            basis=basis,
-            spin=spin,
-            charge=charge,
-            symmetry=symmetry,
-            ncas=ncas,
-            nelecas=nelecas,
-            mapping_method=mapping_method,
+        ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+        distance_new,
+        atom_labels=atom_labels,
+        basis=basis,
+        spin=spin,
+        charge=charge,
+        symmetry=symmetry,
+        ncas=ncas,
+        nelecas=nelecas,
         )
+
+        H_new = hamiltonian.build_qubit_hamiltonian(
+            ecore, h1e, h2e, mapping_method=mapping_method
+        )
+
         energy_new = cost_func(params, ansatz, H_new, estimator)
 
         # Armijo conditon: sufficient decrease
@@ -718,8 +751,8 @@ def geometry_optimization_diatomic(
         f.write(f"Optimization method: {method}\n")
 
     for step in range(max_iterations):
-        # Build hamiltonian for current geometry
-        H_current = hamiltonian.build_hamiltonian_with_geometry(
+
+        ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
             current_distance,
             atom_labels=atom_labels,
             basis=basis,
@@ -728,7 +761,10 @@ def geometry_optimization_diatomic(
             symmetry=symmetry,
             ncas=ncas,
             nelecas=nelecas,
-            mapping_method=mapping_method,
+        )
+
+        H_current = hamiltonian.build_qubit_hamiltonian(
+            ecore, h1e, h2e, mapping_method=mapping_method
         )
 
         vqe_history = []
@@ -816,7 +852,7 @@ def geometry_optimization_diatomic(
         nuclear_gradients.append(grad_nuclear)
 
         # Log progress
-        if step % 4 == 0:
+        if step % 1 == 0:
             with open(out_file, "a") as f:
                 f.write(f"Step {step}: E = {current_energy:.8f} Ha,")
                 f.write(f" bond length = {current_distance:.6f} Å,")
@@ -937,7 +973,7 @@ def finite_diff_triatomic_gradient(
     ecore_plus, h1e_plus, h2e_plus = hamiltonian.build_triatomic_hamiltonian(
         params_plus, atom_labels, **kwargs
     )
-    H_plus = hamiltonian.build_hamiltonian(
+    H_plus = hamiltonian.build_qubit_hamiltonian(
         ecore_plus, h1e_plus, h2e_plus, mapping_method="jordan_wigner"
     )
 
@@ -947,7 +983,7 @@ def finite_diff_triatomic_gradient(
     ecore_minus, h1e_minus, h2e_minus = hamiltonian.build_triatomic_hamiltonian(
         params_minus, atom_labels, **kwargs
     )
-    H_minus = hamiltonian.build_hamiltonian(
+    H_minus = hamiltonian.build_qubit_hamiltonian(
         ecore_minus, h1e_minus, h2e_minus, mapping_method="jordan_wigner"
     )
 
@@ -1057,7 +1093,7 @@ def geometry_optimization_triatomic(
         ecore, h1e, h2e = hamiltonian.build_triatomic_hamiltonian(
             current_geometry, atom_labels, basis=basis, ncas=ncas, nelecas=nelecas
         )
-        H_current = hamiltonian.build_hamiltonian(
+        H_current = hamiltonian.build_qubit_hamiltonian(
             ecore, h1e, h2e, mapping_method=mapping_method
         )
 
@@ -1192,22 +1228,24 @@ that is both dependent on the geometry and the ansatz parameters and then evalua
 they also do this in this paper 
 https://doi.org/10.48550/arXiv.2106.13840
 """
+
+
 def joint_optimization_diatomic(
-        ansatz,
-        backend,
-        out_file,
-        mol,
-        initial_params=None,
-        initial_distance=None,
-        max_iterations=100,
-        convergence_threshold=1e-4,
-        learning_rate = 0.2,         # Parameter können sich schneller anpassen
-        learning_rate_geom = 0.05,   # Geometrie muss sich langsamer anpassen
-        ncas = 2,
-        nelecas = (1,1),
-        mapping_method="jordan_wigner",
+    ansatz,
+    backend,
+    out_file,
+    mol,
+    initial_params=None,
+    initial_distance=None,
+    max_iterations=100,
+    convergence_threshold=1e-4,
+    learning_rate=0.2,  # Parameter können sich schneller anpassen
+    learning_rate_geom=0.05,  # Geometrie muss sich langsamer anpassen
+    ncas=2,
+    nelecas=(1, 1),
+    mapping_method="jordan_wigner",
 ):
-    """  
+    """
     Joint optimization of circuit parameters and geometries that avoids the nested VQE that we have above
 
     Args:
@@ -1250,7 +1288,7 @@ def joint_optimization_diatomic(
         backend_sim = backend
     else:
         backend_sim = AerSimulator.from_backend(backend)
-    
+
     estimator = BackendEstimatorV2(backend=backend_sim)
 
     # Transpile the Ansatz
@@ -1261,10 +1299,10 @@ def joint_optimization_diatomic(
     energies = []
     distances = []
     params_history = []
-    params_gradients =  []
+    params_gradients = []
     geom_gradients = []
 
-    with open(out_file,"a") as f:
+    with open(out_file, "a") as f:
         f.write("\n === Joint Geometry Optimization (Parameters + Geometry) ===\n")
         f.write(f"Initial bond distance: {initial_distance:.6f} Å\n")
         f.write(f"Max iterations: {max_iterations}\n")
@@ -1274,18 +1312,22 @@ def joint_optimization_diatomic(
 
     for iteration in range(max_iterations):
         # Build the hamiltonian for the current geometry
-        H_current = hamiltonian.build_hamiltonian_with_geometry(
-            current_distance,
-            atom_labels=atom_labels,
-            basis=basis,
-            spin=spin,
-            charge=charge,
-            symmetry=symmetry,
-            ncas=ncas,
-            nelecas=nelecas,
-            mapping_method=mapping_method,
+        ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
+        current_distance,
+        atom_labels=atom_labels,
+        basis=basis,
+        spin=spin,
+        charge=charge,
+        symmetry=symmetry,
+        ncas=ncas,
+        nelecas=nelecas,
         )
-        # Compute the current energy 
+
+        H_current = hamiltonian.build_qubit_hamiltonian(
+            ecore, h1e, h2e, mapping_method=mapping_method
+        )
+
+        # Compute the current energy
         current_energy = cost_func(current_params, ansatz_isa, H_current, estimator)
 
         # Compute gradient with to geometry using grad_geometry
@@ -1325,7 +1367,7 @@ def joint_optimization_diatomic(
 
         # Log the progress
         if iteration % 5 == 0:
-            with open(out_file,"a") as f:
+            with open(out_file, "a") as f:
                 f.write(f"Iteration {iteration}: E = {current_energy:.8f} Ha,")
                 f.write(f" bond length = {current_distance:.6f} Å,")
                 f.write(f" ||grad_params|| = {grad_params_norm:.6f},")
@@ -1333,10 +1375,12 @@ def joint_optimization_diatomic(
                 f.write(f" ||total_grad|| = {total_grad_norm:.6f}\n")
         # Check for convergence
         if total_grad_norm < convergence_threshold:
-            with open(out_file,"a") as f:
-                f.write(f"Converged at iteration {iteration} with energy {current_energy:.8f} Ha\n")
+            with open(out_file, "a") as f:
+                f.write(
+                    f"Converged at iteration {iteration} with energy {current_energy:.8f} Ha\n"
+                )
             break
-        
+
         # KORREKTUR 2: Gradienten-Clipping für Stabilität
         grad_params_clipped = np.clip(grad_params, -1.0, 1.0)
         grad_nuclear_clipped = np.clip(grad_nuclear, -1.0, 1.0)
@@ -1349,49 +1393,58 @@ def joint_optimization_diatomic(
         current_distance = np.clip(current_distance, 0.4, 2.5)
 
     # Final logging
-    with open(out_file,"a") as f:
+    with open(out_file, "a") as f:
         f.write(f"\n Optimization completed in {iteration+1} iterations.\n")
         f.write(f"Final bond distance: {current_distance:.6f} Å\n")
         f.write(f"Final energy: {current_energy:.8f} Ha\n")
 
     # Plot results
-    fig, axes = plt.subplots(2, 2, figsize=(12,10))
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     # Energy convergence
-    axes[0,0].plot(range(1,len(energies)+1), energies, marker="o")
-    axes[0,0].set_xlabel("Iteration")
-    axes[0,0].set_ylabel("Energy / Hartree")
-    axes[0,0].set_title("Energy Convergence")
-    axes[0,0].grid()
+    axes[0, 0].plot(range(1, len(energies) + 1), energies, marker="o")
+    axes[0, 0].set_xlabel("Iteration")
+    axes[0, 0].set_ylabel("Energy / Hartree")
+    axes[0, 0].set_title("Energy Convergence")
+    axes[0, 0].grid()
     # Distance convergence
-    axes[0,1].plot(range(1,len(distances)+1), distances, marker="o", color="orange")
-    axes[0,1].set_xlabel("Iteration")
-    axes[0,1].set_ylabel("Bond Distance / Å")
-    axes[0,1].set_title("Bond Distance Convergence")
-    axes[0,1].grid()
+    axes[0, 1].plot(range(1, len(distances) + 1), distances, marker="o", color="orange")
+    axes[0, 1].set_xlabel("Iteration")
+    axes[0, 1].set_ylabel("Bond Distance / Å")
+    axes[0, 1].set_title("Bond Distance Convergence")
+    axes[0, 1].grid()
     # Parameter gradient norm convergence
     param_grad_norms = [np.linalg.norm(g) for g in params_gradients]
-    axes[1,0].plot(range(1,len(param_grad_norms)+1), param_grad_norms, marker="o", color="green")
-    axes[1,0].set_xlabel("Iteration")
-    axes[1,0].set_ylabel("||grad_params||")
-    axes[1,0].set_title("Parameter Gradient Norm Convergence")
-    axes[1,0].grid()
+    axes[1, 0].plot(
+        range(1, len(param_grad_norms) + 1), param_grad_norms, marker="o", color="green"
+    )
+    axes[1, 0].set_xlabel("Iteration")
+    axes[1, 0].set_ylabel("||grad_params||")
+    axes[1, 0].set_title("Parameter Gradient Norm Convergence")
+    axes[1, 0].grid()
     # Geometry gradient convergence
-    axes[1,1].plot(range(1,len(geom_gradients)+1), geom_gradients, marker="o", color="red")
-    axes[1,1].set_xlabel("Iteration")
-    axes[1,1].set_ylabel("|grad_geom|")
-    axes[1,1].set_title("Geometry Gradient Convergence")
-    axes[1,1].grid()
+    axes[1, 1].plot(
+        range(1, len(geom_gradients) + 1), geom_gradients, marker="o", color="red"
+    )
+    axes[1, 1].set_xlabel("Iteration")
+    axes[1, 1].set_ylabel("|grad_geom|")
+    axes[1, 1].set_title("Geometry Gradient Convergence")
+    axes[1, 1].grid()
     plt.tight_layout()
-    plt.savefig("images/joint_geometry_optimization_convergence.png", dpi=300, bbox_inches="tight")
+    plt.savefig(
+        "images/joint_geometry_optimization_convergence.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
     plt.close()
     return energies, distances, current_params, distances[-1]
 
+
 def parameter_shift_gradient(
-        params,
-        ansatz,
-        H,
-        estimator,
-        shift = np.pi / 2,
+    params,
+    ansatz,
+    H,
+    estimator,
+    shift=np.pi / 2,
 ):
     """
     Computes the gradient of the cost function using the Parameter-Shift Rule
@@ -1413,5 +1466,5 @@ def parameter_shift_gradient(
         energy_minus = cost_func(params_minus, ansatz, H, estimator)
 
         # Compute gradient
-        gradient[i] = (energy_plus - energy_minus) / (2* np.sin(shift))
+        gradient[i] = (energy_plus - energy_minus) / (2 * np.sin(shift))
     return gradient
