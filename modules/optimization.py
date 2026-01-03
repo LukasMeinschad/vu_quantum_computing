@@ -410,84 +410,21 @@ gradients according to our hamiltonian for our H2 Molecule
 Since i don't know how to compute those analytically :) i will use finite differences
 """
 
-
-def finite_diff_hamiltonian(
-    distance,
-    atom_labels,
-    delta=1e-5,
-    basis="sto-3g",
-    spin=0,
-    charge=0,
-    symmetry=True,
-    ncas=2,
-    nelecas=(1, 1),
-    mapping_method="jordan_wigner",
-):
-    """
-    Helper function to use central difference to compute the gradient with respect to geometry
-
-    Args:
-        distance (float): Bond distance in Angstrom
-        atom_labels (list[str]): List of two atom symbols, e.g., ["H", "H"] or ["Li", "H"]
-        delta (float): Finite difference step size
-        basis (str): Basis set for calculation
-        spin (int): Spin multiplicity
-        charge (int): Molecular charge
-        symmetry (bool): Whether to use molecular symmetry
-        ncas (int): Number of active space orbitals
-        nelecas (tuple): Number of active space electrons (alpha, beta)
-        mapping_method (str): Fermion-to-qubit mapping method
-    """
-    
-    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
-    distance + delta,
-    atom_labels=atom_labels,
-    basis=basis,
-    spin=spin,
-    charge=charge,
-    symmetry=symmetry,
-    ncas=ncas,
-    nelecas=nelecas,
-    )
-
-    H_plus = hamiltonian.build_qubit_hamiltonian(
-        ecore, h1e, h2e, mapping_method=mapping_method
-    )
-    
-    ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
-    distance - delta,
-    atom_labels=atom_labels,
-    basis=basis,
-    spin=spin,
-    charge=charge,
-    symmetry=symmetry,
-    ncas=ncas,
-    nelecas=nelecas,
-    )
-
-    H_minus = hamiltonian.build_qubit_hamiltonian(
-        ecore, h1e, h2e, mapping_method=mapping_method
-    )
-
-    dH_ddistance = (H_plus - H_minus) / (2 * delta)
-    return dH_ddistance
-
-
 def grad_geometry(
     params,
     distance,
     ansatz,
     backend,
     atom_labels,
-    estimator=None,
-    delta=0.0053,
-    basis="sto-3g",
-    spin=0,
-    charge=0,
-    symmetry=True,
-    ncas=2,
-    nelecas=(1, 1),
-    mapping_method="jordan_wigner",
+    estimator,
+    delta,
+    basis,
+    spin,
+    charge,
+    symmetry,
+    ncas,
+    nelecas,
+    mapping_method,
 ):
     """
     Calculate nuclear gradient dE/dR using finite differences.
@@ -501,7 +438,7 @@ def grad_geometry(
         backend: Qiskit backend
         atom_labels (list[str]): List of two atom symbols
         estimator: Qiskit Estimator primitive
-        delta (float): Finite difference step size
+        delta (float): Finite difference step size in Angstrom
     """
     if estimator is None:
         if backend is None:
@@ -514,14 +451,14 @@ def grad_geometry(
 
     # Compute energy at R + delta
     ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
-    distance + delta,
-    atom_labels=atom_labels,
-    basis=basis,
-    spin=spin,
-    charge=charge,
-    symmetry=symmetry,
-    ncas=ncas,
-    nelecas=nelecas,
+        distance + delta,
+        atom_labels=atom_labels,
+        basis=basis,
+        spin=spin,
+        charge=charge,
+        symmetry=symmetry,
+        ncas=ncas,
+        nelecas=nelecas,
     )
 
     H_plus = hamiltonian.build_qubit_hamiltonian(
@@ -533,14 +470,14 @@ def grad_geometry(
     # Compute energy at R - delta
 
     ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
-    distance - delta,
-    atom_labels=atom_labels,
-    basis=basis,
-    spin=spin,
-    charge=charge,
-    symmetry=symmetry,
-    ncas=ncas,
-    nelecas=nelecas,
+        distance - delta,
+        atom_labels=atom_labels,
+        basis=basis,
+        spin=spin,
+        charge=charge,
+        symmetry=symmetry,
+        ncas=ncas,
+        nelecas=nelecas,
     )
 
     H_minus = hamiltonian.build_qubit_hamiltonian(
@@ -609,14 +546,14 @@ def line_search_backtracking(
     """
     # BUILD WITH ALL PARAMETERS
     ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
-    distance,
-    atom_labels=atom_labels,
-    basis=basis,
-    spin=spin,
-    charge=charge,
-    symmetry=symmetry,
-    ncas=ncas,
-    nelecas=nelecas,
+        distance,
+        atom_labels=atom_labels,
+        basis=basis,
+        spin=spin,
+        charge=charge,
+        symmetry=symmetry,
+        ncas=ncas,
+        nelecas=nelecas,
     )
 
     H_current = hamiltonian.build_qubit_hamiltonian(
@@ -638,14 +575,14 @@ def line_search_backtracking(
 
         # BUILD WITH ALL PARAMETERS
         ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
-        distance_new,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
+            distance_new,
+            atom_labels=atom_labels,
+            basis=basis,
+            spin=spin,
+            charge=charge,
+            symmetry=symmetry,
+            ncas=ncas,
+            nelecas=nelecas,
         )
 
         H_new = hamiltonian.build_qubit_hamiltonian(
@@ -837,6 +774,7 @@ def geometry_optimization_diatomic(
             backend,
             atom_labels=atom_labels,
             estimator=estimator,
+            delta=0.0053,
             basis=basis,
             spin=spin,
             charge=charge,
@@ -1313,14 +1251,14 @@ def joint_optimization_diatomic(
     for iteration in range(max_iterations):
         # Build the hamiltonian for the current geometry
         ecore, h1e, h2e = hamiltonian.build_fermionic_hamiltonian_diatomic(
-        current_distance,
-        atom_labels=atom_labels,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry,
-        ncas=ncas,
-        nelecas=nelecas,
+            current_distance,
+            atom_labels=atom_labels,
+            basis=basis,
+            spin=spin,
+            charge=charge,
+            symmetry=symmetry,
+            ncas=ncas,
+            nelecas=nelecas,
         )
 
         H_current = hamiltonian.build_qubit_hamiltonian(
@@ -1338,6 +1276,7 @@ def joint_optimization_diatomic(
             backend,
             atom_labels=atom_labels,
             estimator=estimator,
+            delta=0.0053,
             basis=basis,
             spin=spin,
             charge=charge,
