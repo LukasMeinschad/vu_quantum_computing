@@ -137,16 +137,16 @@ def ham_terms_diatomic(
 def build_hamiltonian_with_geometry(
         distx: float,
         atom_labels: list[str],
-        basis: str = "sto-3g",
-        spin: int = 0,
-        charge: int = 0,
-        symmetry: bool = True,
-        ncas: int = 2,
-        nelecas: tuple = (1, 1),
-        mapping_method: str = "jordan_wigner",
+        basis: str,
+        spin: int,
+        charge: int,
+        symmetry: bool,
+        ncas: int,
+        nelecas: tuple,
+        mapping_method: str,
         ) -> SparsePauliOp:
     """
-    Build qubit Hamiltonian for H2 molecule at given bond distance
+    Build the qubit Hamiltonian for a diatomic molecule and a given bond distance
 
     Args:
         distx (float): Bond distance in Angstrom
@@ -157,6 +157,7 @@ def build_hamiltonian_with_geometry(
         symmetry (bool): Whether to use molecular symmetry
         ncas (int): Number of active space orbitals
         nelecas (tuple): Number of active space electrons (alpha, beta) 
+        mapping_method (str): Qubit mapping method ("jordan_wigner" or "bravyi_kitaev")
     
     Returns:
         Qubit Hamiltonian as SparsePauliOp
