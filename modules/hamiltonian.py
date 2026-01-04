@@ -1,5 +1,8 @@
 from pyscf import ao2mo, gto, mcscf, scf
 from qiskit.quantum_info import SparsePauliOp
+from qiskit_nature.units import DistanceUnit
+from qiskit_nature.second_q.drivers import PySCFDriver
+from qiskit_nature.second_q.mappers import JordanWignerMapper
 import numpy as np
 
 import modules.mapping as mapping
@@ -251,6 +254,89 @@ def build_triatomic_hamiltonian(
         raise ValueError("SCF calculation did not converge.")
 
     return get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
+
+
+def build_qubit_hamiltonian_diatomic_from_xyz_qiskit_nature(
+    xyz_path: str,
+    distance: float,
+    basis: str,
+    charge: int,
+    spin: int
+) -> SparsePauliOp:
+    """Build a diatomic qubit Hamiltonian from an XYZ file using Qiskit Nature.
+
+    The XYZ file is only used to determine the atomic symbols (must contain
+    exactly two atoms). The geometry is rebuilt as a linear diatomic molecule
+    with the requested bond distance along the z-axis.
+
+    Args:
+        xyz_path: Path to the diatomic XYZ geometry file.
+        distance: Bond distance between the two atoms (in units given by ``unit``).
+        basis: Basis set passed to the Qiskit Nature PySCF driver.
+        charge: Total molecular charge.
+        spin: 2S where S is the total spin (number of alpha minus beta electrons).
+        unit: Distance unit for the coordinates (default: Angstrom).
+
+    Returns:
+        SparsePauliOp representing the qubit Hamiltonian including nuclear
+        repulsion energy, obtained via a Jordan–Wigner mapping.
+    """
+
+    # Parse XYZ file to obtain the two element symbols
+    with open(xyz_path, "r") as f:
+        lines = [line.strip() for line in f.readlines() if line.strip()]
+
+    try:
+        natoms = int(lines[0].split()[0])
+    except (ValueError, IndexError) as exc:
+        raise ValueError(
+            f"First line of {xyz_path} must contain the number of atoms."
+        ) from exc
+
+    if natoms != 2:
+        raise ValueError(
+            f"Diatomic molecule expected, but XYZ file contains {natoms} atoms."
+        )
+
+    atom_lines = lines[2 : 2 + natoms]
+    if len(atom_lines) != natoms:
+        raise ValueError(
+            f"Expected {natoms} atom lines in {xyz_path}, got {len(atom_lines)}."
+        )
+
+    symbols = []
+    for line in atom_lines:
+        parts = line.split()
+        if len(parts) < 1:
+            raise ValueError(f"Invalid XYZ atom line: {line}")
+        symbols.append(parts[0])
+
+    # Rebuild a linear diatomic geometry along the z-axis with the given distance
+    atom = f"{symbols[0]} 0.0 0.0 0.0; {symbols[1]} 0.0 0.0 {float(distance)}"
+
+    driver = PySCFDriver(
+        atom=atom,
+        basis=basis,
+        charge=charge,
+        spin=spin,
+        unit=DistanceUnit.ANGSTROM,
+    )
+
+    problem = driver.run()
+    hamiltonian = problem.hamiltonian
+    fermionic_op = hamiltonian.second_q_op()
+
+    # Map fermionic operator to qubit operator using Jordan–Wigner mapping
+    mapper = JordanWignerMapper()
+    qubit_hamiltonian = mapper.map(fermionic_op)
+
+    # Add nuclear repulsion energy as an identity term so that the returned
+    # operator corresponds to the full electronic Hamiltonian
+    num_qubits = qubit_hamiltonian.num_qubits
+    identity = SparsePauliOp(["I" * num_qubits], [hamiltonian.nuclear_repulsion_energy])
+    qubit_hamiltonian = (qubit_hamiltonian + identity).simplify()
+
+    return qubit_hamiltonian
 
 
 # Logging functions

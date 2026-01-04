@@ -32,103 +32,16 @@ if __name__ == "__main__":
         geoopt_convergence_threshold = 1e-4
         hf_initial_state = True
 
-    elif cli_args.molecule == "LiH":
-        input_geom = "./test_molecules/lih.xyz"
-        spin = 0
-        charge = 0
-        symmetry = False
-        basis = "sto-3g"
-        ncas = 4  # Number of active space orbitals for CASCI
-        nelecas = (2, 2)  # Number of active space electrons (alpha, beta) for CASCI
-        mapping_method = "bravyi_kitaev"
-        ansatz_type = "pauli_two_design"
-        reps = 2  # Number of repetitions for the ansatz
-        entanglement = "full"  # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-        max_vqe_iterations = 100
-        max_geoopt_iterations = 50
-        geoopt_convergence_threshold = 1e-4
-        hf_initial_state = True
-
-    elif cli_args.molecule == "HF":
-        input_geom = "./test_molecules/hf.xyz"
-        spin = 0
-        charge = 0
-        symmetry = True
-        basis = "sto-3g"
-        # HF molecule has 10 electrons so we have different choices for an active space
-        ncas = 6  # Number of Active Orbitals
-        nelecas = (5, 5)  # (alpha, beta) electrons - 10 total in active space
-        mapping_method = "bravyi_kitaev"
-        ansatz_type = "pauli_two_design"
-        reps = 2  # Number of repetitions for the ansatz
-        entanglement = "full"  # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-        max_vqe_iterations = 100
-        max_geoopt_iterations = 8
-        geoopt_convergence_threshold = 1e-3
-        hf_initial_state = False
-
-    elif cli_args.molecule == "H2O":
-        input_geom = "./test_molecules/water.xyz"
-        spin = 0
-        charge = 0
-        symmetry = True
-        basis = "sto-3g"
-        ncas = 7  # Number of active space orbitals for CASCI
-        nelecas = (5, 5)  # (alpha, beta) electrons - 10 total
-        mapping_method = "bravyi_kitaev"
-        ansatz_type = "pauli_two_design"
-        reps = 2  # Number of repetitions for the ansatz
-        entanglement = "full"  # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-        max_vqe_iterations = 100
-        max_geoopt_iterations = 8
-        geoopt_convergence_threshold = 1e-3
-        hf_initial_state = True
-
     backend = AerSimulator()
 
     with open(out_file, "w") as f:
         f.write("VQE Geometry Optimization Results\n")
         f.write("=" * 40 + "\n\n")
 
-    # Build Molecule and Run SCF
-    mol = molecule.build_molecule_from_xyz(input_geom, basis, spin, charge, symmetry)
-    mf = hamiltonian.run_scf_calculation(mol, method="RHF")
-    molecule.write_molecule_out(mol, out_file)
-    molecule.write_energy_out(mf, out_file)
-
-    # Get Hartree-Fock Fermionic Hamiltonian
-    ecore, h1e, h2e = hamiltonian.get_hf_hamiltonian(mf)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="Hartree-Fock")
-
-    # Get Complete Active Space Fermionic Hamiltonian
-    ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="CASCI")
-
-    """  
-    These test functions can be uncommented to run different comparison tests
-    regarding the VQE optimization process.
-    """
-
-    # Compare VQE with full and active space Hamiltonians at fixed geometry
-    # comparison.run_single_point_comparison(mf, backend, out_file, molecule="H2")
-
-    # Compare the influence of initial parameters on VQE optimization
-    # comparison.initial_parameters_influence(mf, backend, out_file)
-
-    # Compare the influence of optimizer choice on VQE optimization
-    # comparison.influence_optimizer_choice(mf, backend, out_file)
-
-    # Compare the influence of ansatz depth on VQE optimization
-    # comparison.influence_ansatz_depth(mf, backend, out_file)
-
-    # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
-    # comparison.compare_mappings(ecore, h1e, h2e, out_file)
-
     # Build Qubit Hamiltonian
-    H_qubit = hamiltonian.build_qubit_hamiltonian(ecore, h1e, h2e, mapping_method)
+    H_qubit = hamiltonian.build_qubit_hamiltonian_diatomic_from_xyz_qiskit_nature(
+        "./test_molecules/h2.xyz", distance=0.74, basis=basis, charge=charge, spin=spin
+    )
     hamiltonian.write_qubit_hamiltonian_out(H_qubit, out_file)
 
     # Create Ansatz Circuit
@@ -147,87 +60,20 @@ if __name__ == "__main__":
     ansatz_module.write_ansatz_out(ansatz, out_file)
     ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
 
-    # Run Geometry Optimization
-    if mol.natm == 2:
+    # Bond scan using Qiskit Nature-based Hamiltonian from 0.6 to 0.9 Å
+    scan_method = vqe_optimizer
+    scan_options = {"maxiter": max_vqe_iterations}
 
-        # Test VQE single point
-        # optimization.vqe_single_point(
-        #     ansatz=ansatz,
-        #     H = H_qubit,
-        #     backend=backend,
-        #     out_file=out_file,
-        #     initial_params=None,
-        #     method = "COBYLA",
-        #     options={"maxiter": 100}
-        # )
-
-        # Test VQE PES scan
-        optimization.bond_scan(
-            ansatz=ansatz,
-            backend=backend,
-            out_file=out_file,
-            mol=mol,
-            distance_range=(0.6, 0.9),
-            num_points=30,
-            method=vqe_optimizer,
-            options={"maxiter": 200, "rhobeg": 1.2, "tol": 1e-9},
-            ncas=ncas,
-            nelecas=nelecas,
-            mapping_method=mapping_method,
-        )
-
-        # Try out the joint optimization method for diatomics
-        # optimization.joint_optimization_diatomic(
-        #     ansatz=ansatz,
-        #     backend=backend,
-        #     out_file=out_file,
-        #     mol=mol,
-        #     initial_params=None,
-        #     initial_distance=None,
-        #     max_iterations=max_geoopt_iterations,
-        #     convergence_threshold=geoopt_convergence_threshold,
-        #     learning_rate=0.1,  # For circuit parameters
-        #     learning_rate_geom=0.01,  # For geometry parameter
-        #     ncas=ncas,
-        #     nelecas=nelecas,
-        #     mapping_method=mapping_method,
-        # )
-
-        # optimization.geometry_optimization_diatomic(
-        #     ansatz=ansatz,
-        #     backend=backend,
-        #     out_file=out_file,
-        #     mol=mol,
-        #     method=vqe_optimizer,
-        #     convergence_threshold=geoopt_convergence_threshold,
-        #     step_method="backtracking",
-        #     max_iterations=max_geoopt_iterations,
-        #     options={"maxiter": max_vqe_iterations},
-        #     # Two stage optimization
-        #     use_two_stage_vqe=False,
-        #     stage1_maxiter=150,
-        #     stage2_maxiter=100,
-        #     ncas=ncas,
-        #     nelecas=nelecas,
-        #     mapping_method=mapping_method,
-        # )
-
-    elif mol.natm == 3:
-        optimization.geometry_optimization_triatomic(
-            ansatz=ansatz,
-            backend=backend,
-            out_file=out_file,
-            mol=mol,
-            max_iterations=max_geoopt_iterations,
-            convergence_threshold=geoopt_convergence_threshold,
-            method=vqe_optimizer,
-            step_size=0.05,
-            ncas=ncas,
-            nelecas=nelecas,
-            mapping_method=mapping_method,
-            options={"maxiter": max_vqe_iterations},
-        )
-    else:
-        raise ValueError(
-            "Geometry optimization currently supports only diatomic or triatomic molecules."
-        )
+    optimization.bond_scan_qiskit_nature(
+        ansatz=ansatz,
+        backend=backend,
+        out_file=out_file,
+        xyz_path="./test_molecules/h2.xyz",
+        distance_range=(0.6, 0.9),
+        num_points=10,
+        method=scan_method,
+        options=scan_options,
+        basis=basis,
+        charge=charge,
+        spin=spin,
+    )

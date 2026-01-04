@@ -259,6 +259,141 @@ def bond_scan(
     return distances, energies, optimal_distance, optimal_energy
 
 
+def bond_scan_qiskit_nature(
+    ansatz,
+    backend,
+    out_file,
+    xyz_path,
+    distance_range,
+    num_points,
+    method,
+    options,
+    basis="sto3g",
+    charge=0,
+    spin=0,
+):
+    """Bond scan using Qiskit Nature's diatomic qubit Hamiltonian builder.
+
+    This function mirrors :func:`bond_scan` but constructs the qubit Hamiltonian
+    directly with Qiskit Nature via
+    :func:`hamiltonian.build_qubit_hamiltonian_diatomic_from_xyz_qiskit_nature`.
+
+    Args:
+        ansatz: Qiskit QuantumCircuit object representing the ansatz.
+        backend: Qiskit backend (simulator or real device).
+        out_file: Path to output file for logging results.
+        xyz_path: Path to the diatomic XYZ file (must contain exactly two atoms).
+        distance_range: Tuple (d_min, d_max) in Angstrom.
+        num_points: Number of distance points between d_min and d_max.
+        method: Classical optimizer method for VQE (e.g. "COBYLA").
+        options: Options dict for the optimizer.
+        basis: Basis set string for Qiskit Nature's PySCFDriver.
+        charge: Total molecular charge.
+        spin: 2S where S is total spin.
+
+    Returns:
+        distances: 1D numpy array of bond distances.
+        energies: 1D numpy array of VQE energies (Hartree).
+        optimal_distance: Distance with minimum energy.
+        optimal_energy: Minimum energy value.
+    """
+
+    distances = np.linspace(distance_range[0], distance_range[1], num_points)
+    energies = []
+
+    with open(out_file, "a") as f:
+        f.write("\n=== Bond Scan with Qiskit Nature (PES) ===\n")
+        f.write(
+            f"Scanning {num_points} points from {distance_range[0]} Å to {distance_range[1]} Å\n"
+        )
+
+    # Start with HF-like parameters (zeros) for the first point
+    initial_params = np.zeros(ansatz.num_parameters)
+
+    for i, dist in enumerate(distances):
+        with open(out_file, "a") as f:
+            f.write(f"\n--- Point {i+1}/{num_points}: Distance = {dist:.3f} Å ---\n")
+
+        try:
+            # Build qubit Hamiltonian for this geometry using Qiskit Nature
+            H = hamiltonian.build_qubit_hamiltonian_diatomic_from_xyz_qiskit_nature(
+                xyz_path=xyz_path,
+                distance=dist,
+                basis=basis,
+                charge=charge,
+                spin=spin,
+            )
+
+            result, energy_history = vqe_single_point(
+                ansatz=ansatz,
+                H=H,
+                backend=backend,
+                out_file=out_file,
+                initial_params=initial_params,
+                method=method,
+                options=options,
+            )
+
+            # Use final optimizer energy
+            energy = float(result.fun)
+            energies.append(energy)
+
+            # Warm-start next point with current optimal parameters
+            initial_params = result.x
+
+            with open(out_file, "a") as f:
+                f.write(f"VQE Energy at {dist:.3f} Å: {energy:.8f} Ha\n")
+        except Exception as e:
+            with open(out_file, "a") as f:
+                f.write(f"Error at distance {dist:.3f} Å: {e}\n")
+            energies.append(None)
+            initial_params = np.zeros(ansatz.num_parameters)
+
+    energies = np.array(energies, dtype=object)
+    valid_idx = np.where(energies != None)[0]
+
+    if valid_idx.size == 0:
+        error_msg = (
+            "Bond scan (Qiskit Nature) failed: no valid VQE energies were obtained."
+        )
+        with open(out_file, "a") as f:
+            f.write(f"\n{error_msg}\n")
+        raise RuntimeError(error_msg)
+
+    min_idx = valid_idx[np.argmin(energies[valid_idx].astype(float))]
+    optimal_distance = distances[min_idx]
+    optimal_energy = float(energies[min_idx])
+
+    with open(out_file, "a") as f:
+        f.write(
+            f"\nOptimal bond distance from Qiskit Nature scan: "
+            f"{optimal_distance:.4f} Å with energy {optimal_energy:.8f} Hartree\n"
+        )
+
+    # Plot PES for valid points
+    valid_distances = distances[valid_idx]
+    valid_energies = energies[valid_idx].astype(float)
+    plt.figure(figsize=(10, 6))
+    plt.plot(valid_distances, valid_energies, marker="o", linestyle="-")
+    plt.xlabel("Bond Distance / Å")
+    plt.ylabel("Energy / Hartree")
+    plt.title("Potential Energy Surface (Qiskit Nature)")
+    plt.grid(True)
+    plt.savefig("images/pes_scan_qiskit_nature.png", dpi=300, bbox_inches="tight")
+    plt.close()
+
+    results = np.column_stack((distances, energies))
+    np.savetxt(
+        "bond_scan_qiskit_nature_results.dat",
+        results,
+        header="Distance(Angstrom) Energy(Hartree)",
+    )
+    with open(out_file, "a") as f:
+        f.write("Bond scan (Qiskit Nature) results saved to bond_scan_qiskit_nature_results.dat\n")
+
+    return distances, energies, optimal_distance, optimal_energy
+
+
 """" 
 Since this bond scan function is not really an optimization we compute the 
 gradients according to our hamiltonian for our H2 Molecule
