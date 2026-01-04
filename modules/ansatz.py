@@ -96,11 +96,11 @@ def create_hardware_efficient_ansatz(num_qubits, reps=2, entanglement="full", in
     return ansatz
 
 def create_ansatz(num_qubits,
-                   ansatz_type = "pauli_two_design",
-                     reps=2, 
-                     entanglement="full",
-                     num_electrons = None,
-                     use_hf_initial_state = True):
+                  ansatz_type,
+                  reps, 
+                  entanglement,
+                  num_electrons,
+                  use_hf_initial_state):
     """
     Factory function to create ansatz circuits based on specified type
     """ 

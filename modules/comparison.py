@@ -36,7 +36,8 @@ def run_single_point_comparison(mf, backend, out_file, molecule="H2"):
     )
     num_qubits_hf = H_qubit_hf.num_qubits
     ansatz_hf = ansatz_module.create_ansatz(
-        num_qubits_hf, ansatz_type="pauli_two_design", reps=3, entanglement="full"
+        num_qubits_hf, ansatz_type="pauli_two_design", reps=3, entanglement="full", num_electrons=nelecas,
+        use_hf_initial_state=True
     )
     vqe_result_hf, energy_history_hf = optimization.vqe_single_point(
         ansatz_hf,
@@ -61,7 +62,8 @@ def run_single_point_comparison(mf, backend, out_file, molecule="H2"):
     )
     num_qubits_cas = H_qubit_cas.num_qubits
     ansatz_cas = ansatz_module.create_ansatz(
-        num_qubits_cas, ansatz_type="pauli_two_design", reps=3, entanglement="full"
+        num_qubits_cas, ansatz_type="pauli_two_design", reps=3, entanglement="full", num_electrons=nelecas,
+        use_hf_initial_state=True
     )
     vqe_result_cas, energy_history_cas = optimization.vqe_single_point(
         ansatz_cas,
@@ -194,7 +196,8 @@ def influence_ansatz_depth(mf, backend, out_file, molecule="H2"):
     for depth in depths:
         print(f"\nRunning VQE with ansatz depth: {depth}...\n")
         ansatz = ansatz_module.create_ansatz(
-            num_qubits, ansatz_type="pauli_two_design", reps=depth, entanglement="full"
+            num_qubits, ansatz_type="pauli_two_design", reps=depth, entanglement="full", num_electrons=nelecas,
+            use_hf_initial_state=True
         )
         vqe_result, energy_history = optimization.vqe_single_point(
             ansatz,
