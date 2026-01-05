@@ -1,81 +1,174 @@
-from pyscf import gto, scf
-import os
+"""
+Molecule utilities.
 
-def build_molecule_from_xyz(xyz_file, basis="sto-6g", spin=0, charge=0, symmetry=True):
-    """  
-    Helper function to build a PySCF molecule object from a xyz file
+This module provides helpers to:
+- read an .xyz file and convert it into a PySCF-compatible atom string
+- build a Qiskit Nature ElectronicStructureProblem via PySCFDriver
+- optionally apply Freeze-Core and/or Active-Space reductions
+- extract the second-quantized (fermionic) Hamiltonian
+"""
 
-    Args:
-        xyz_file (str): Path to the xyz file.
-        basis (str): Basis set to use.
-        spin (int): Spin multiplicity.
-        charge (int): Charge of the molecule.
-        symmetry (bool or str): Whether to use symmetry. If given a string of point
-                                group name, the given point group symmetry will be used.
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Iterable
+
+import numpy as np
+from qiskit_nature.second_q.drivers import PySCFDriver
+from qiskit_nature.second_q.formats.molecule_info import MoleculeInfo
+from qiskit_nature.second_q.transformers import ActiveSpaceTransformer, FreezeCoreTransformer
+from qiskit_nature.units import DistanceUnit
+
+
+@dataclass(frozen=True)
+class MoleculeSpec:
     """
-    with open(xyz_file, 'r') as f:
-        lines = f.readlines()
+    Configuration for the PySCF driver input.
 
-    # First line is number of atoms
-    n_atoms = int(lines[0].strip())
+    Parameters
+    ----------
+    atom:
+        Either a PySCF atom string (recommended format: ';'-separated),
+        e.g. "H 0 0 -0.37; H 0 0 0.37",
+        or a Qiskit Nature MoleculeInfo.
+    basis, charge, spin, unit:
+        Standard PySCFDriver settings.
+    driver_kwargs:
+        Extra keyword arguments passed to PySCFDriver.
+    """
+    atom: str | MoleculeInfo
+    basis: str = "sto3g"
+    charge: int = 0
+    spin: int = 0
+    unit: DistanceUnit = DistanceUnit.ANGSTROM
+    driver_kwargs: dict[str, Any] | None = None
 
-    # Second line is comment line
-    # Then we have atom lines of type: Element x y z
-    atom_list = []
-    for i in range(2, 2 + n_atoms):
-        parts = lines[i].split()
-        element = parts[0]
-        x,y,z = float(parts[1]), float(parts[2]), float(parts[3])
-        atom_list.append([element, (x,y,z)])
 
-    # Build the molecule object
-    mol = gto.Mole()
-    mol.build(
-        verbose=0, # Print symmetry details
-        atom=atom_list,
-        basis=basis,
-        spin=spin,
-        charge=charge,
-        symmetry=symmetry
+def xyz_file_to_pyscf_atom_string(xyz_path: str | Path) -> str:
+    """
+    Read an .xyz file and convert it into a PySCF-compatible atom string.
+
+    The XYZ format is expected as:
+        line 1: number of atoms
+        line 2: comment
+        next N lines: "Element x y z [ignored extras...]"
+
+    Returns
+    -------
+    str
+        PySCF atom string: "H 0 0 0; H 0 0 0.74"
+    """
+    path = Path(xyz_path)
+    lines = [ln.strip() for ln in path.read_text().splitlines() if ln.strip()]
+    if len(lines) < 3:
+        raise ValueError(f"XYZ file too short: {path}")
+
+    try:
+        n = int(lines[0])
+    except ValueError as exc:
+        raise ValueError(f"First line must be the atom count, got: {lines[0]!r}") from exc
+
+    body = lines[2 : 2 + n]
+    if len(body) != n:
+        raise ValueError(f"XYZ declares {n} atoms but contains {len(body)} coordinate lines.")
+
+    atoms: list[str] = []
+    for ln in body:
+        parts = ln.split()
+        if len(parts) < 4:
+            raise ValueError(f"Invalid XYZ line (need 'El x y z'): {ln!r}")
+        sym = parts[0]
+        x, y, z = map(float, parts[1:4])
+        atoms.append(f"{sym} {x} {y} {z}")
+
+    return "; ".join(atoms)
+
+
+def _to_pyscf_atom_string(molecule: str | MoleculeInfo) -> str:
+    """Convert MoleculeInfo -> PySCF atom string; keep str unchanged."""
+    if isinstance(molecule, MoleculeInfo):
+        parts: list[str] = []
+        for sym, (x, y, z) in molecule.geometry:
+            parts.append(f"{sym} {float(x)} {float(y)} {float(z)}")
+        return "; ".join(parts)
+    return molecule
+
+
+def _sanitize_active_space(problem, active_space: tuple[int, int]) -> tuple[int, int]:
+    """
+    Make (num_electrons, num_spatial_orbitals) feasible for ActiveSpaceTransformer.
+
+    Enforced conditions:
+    - 1 <= active_orbitals <= total_orbitals
+    - 0 <= active_electrons <= total_electrons
+    - active_electrons <= 2 * active_orbitals
+    - inactive_electrons <= 2 * inactive_orbitals
+    """
+    req_e, req_o = map(int, active_space)
+
+    total_orb = int(problem.num_spatial_orbitals)
+    total_e = int(sum(problem.num_particles))  # (n_alpha, n_beta) -> total
+
+    req_o = max(1, min(req_o, total_orb))
+    req_e = max(0, min(req_e, total_e))
+
+    req_e = min(req_e, 2 * req_o)
+
+    inactive_e = total_e - req_e
+    inactive_orb = total_orb - req_o
+
+    if inactive_e > 2 * inactive_orb:
+        needed_inactive_orb = int(np.ceil(inactive_e / 2))
+        req_o = max(1, total_orb - needed_inactive_orb)
+        req_e = min(req_e, 2 * req_o)
+
+    return req_e, req_o
+
+
+def build_molecule_problem(
+    spec: MoleculeSpec,
+    *,
+    freeze_core: bool = False,
+    active_space: tuple[int, int] | None = None,  # (num_electrons, num_spatial_orbitals)
+    sanitize_active_space: bool = True,
+):
+    """
+    Build a Qiskit Nature ElectronicStructureProblem using PySCFDriver.
+
+    Optionally applies:
+    - FreezeCoreTransformer
+    - ActiveSpaceTransformer
+    """
+    atom_str = _to_pyscf_atom_string(spec.atom)
+    driver = PySCFDriver(
+        atom=atom_str,
+        basis=spec.basis,
+        charge=spec.charge,
+        spin=spec.spin,
+        unit=spec.unit,
+        **(spec.driver_kwargs or {}),
     )
+    problem = driver.run()
 
-    return mol
+    if freeze_core:
+        problem = FreezeCoreTransformer().transform(problem)
 
-# Logging Functions
+    if active_space is not None:
+        nelec, norb = active_space
+        if sanitize_active_space:
+            nelec, norb = _sanitize_active_space(problem, (nelec, norb))
+        problem = ActiveSpaceTransformer(num_electrons=nelec, num_spatial_orbitals=norb).transform(problem)
 
-def write_molecule_out(mol, filepath):
+    return problem
+
+
+def build_fermionic_hamiltonian(problem):
     """
-    Writes basic properties of the molecule to out
+    Extract the second-quantized (fermionic) Hamiltonian from an ElectronicStructureProblem.
+
+    Returns
+    -------
+    FermionicOp (typically)
     """
-    if os.path.exists(filepath):
-        mode = 'a'
-    else:
-        mode = 'w'
-
-    with open(filepath, mode) as f:
-        f.write("=== Molecule Properties ===\n")
-        f.write(f"Atoms:\n")
-        for atom in mol.atom:
-            f.write(f"  {atom}\n")
-        f.write(f"Basis Set: {mol.basis}\n")
-        f.write(f"Number of electrons: {mol.nelectron}\n")
-        f.write(f"Number of basis functions: {mol.nao_nr()}\n\n")
-
-def write_energy_out(mf, filepath):
-    """  
-    Writes the final electronic energy to a file
-
-    Args:
-        mf: Converged SCF object.
-        filepath (str): Path to the output file.
-    """
-    if os.path.exists(filepath):
-        mode = 'a'
-    else:
-        mode = 'w'
-
-    with open(filepath, mode) as f:
-        f.write("=== SCF Energy Results ===\n")
-        f.write(f"Nucleic Repulsion Energy: {mf.energy_nuc()} Hartree\n")
-        f.write(f"Electronic Energy: {mf.energy_elec()[0]} Hartree\n")
-        f.write(f"Total energy: {mf.energy_tot()} Hartree\n\n")
+    return problem.second_q_ops()[0]

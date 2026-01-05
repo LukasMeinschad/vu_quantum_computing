@@ -1,233 +1,386 @@
-import numpy as np
-from qiskit_aer import AerSimulator
+from __future__ import annotations
 
-import modules.molecule as molecule
-import modules.hamiltonian as hamiltonian
-import modules.ansatz as ansatz_module
-import modules.optimization as optimization
-import modules.comparison as comparison
-import modules.args as args
+from pathlib import Path
+import numpy as np
+
+from qiskit_aer import AerSimulator
+from qiskit_aer.noise import NoiseModel, depolarizing_error
+from qiskit_aer.primitives import EstimatorV2
+from qiskit_algorithms.optimizers import COBYLA
+from qiskit_nature.units import DistanceUnit
+from qiskit_nature.second_q.mappers import JordanWignerMapper
+
+import matplotlib.pyplot as plt
+
+from modules.molecule import MoleculeSpec, build_molecule_problem
+from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
+from modules.ansatz import build_uccsd_ansatz
+from modules.vqe import run_vqe_single_point
+
+from modules.bond_scan import bond_scan_diatomic_vqe
+from modules.joint_optimization import joint_optimize_diatomic_bond_length, joint_optimize_water_geometry
 
 
 if __name__ == "__main__":
-
-    cli_args = args.parse_arguments()
-    out_file = "results.log"
-
-    if cli_args.molecule == "H2":
-        input_geom = "./test_molecules/h2.xyz"
-        spin = 0
-        charge = 0
-        symmetry = True
-        basis = "sto-3g"
-        ncas = 2  # Number of active space orbitals for CASCI
-        nelecas = (1, 1)  # Number of active space electrons (alpha, beta) for CASCI
-        mapping_method = "jordan_wigner"
-        ansatz_type = "efficient_su2"
-        reps = 3  # Number of repetitions for the ansatz
-        entanglement = "linear"  # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-        max_vqe_iterations = 200
-        max_geoopt_iterations = 50
-        geoopt_convergence_threshold = 1e-4
-        hf_initial_state = True
-
-    elif cli_args.molecule == "LiH":
-        input_geom = "./test_molecules/lih.xyz"
-        spin = 0
-        charge = 0
-        symmetry = False
-        basis = "sto-3g"
-        ncas = 4  # Number of active space orbitals for CASCI
-        nelecas = (2, 2)  # Number of active space electrons (alpha, beta) for CASCI
-        mapping_method = "bravyi_kitaev"
-        ansatz_type = "pauli_two_design"
-        reps = 2  # Number of repetitions for the ansatz
-        entanglement = "full"  # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-        max_vqe_iterations = 100
-        max_geoopt_iterations = 50
-        geoopt_convergence_threshold = 1e-4
-        hf_initial_state = True
-
-    elif cli_args.molecule == "HF":
-        input_geom = "./test_molecules/hf.xyz"
-        spin = 0
-        charge = 0
-        symmetry = True
-        basis = "sto-3g"
-        # HF molecule has 10 electrons so we have different choices for an active space
-        ncas = 6  # Number of Active Orbitals
-        nelecas = (5, 5)  # (alpha, beta) electrons - 10 total in active space
-        mapping_method = "bravyi_kitaev"
-        ansatz_type = "pauli_two_design"
-        reps = 2  # Number of repetitions for the ansatz
-        entanglement = "full"  # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-        max_vqe_iterations = 100
-        max_geoopt_iterations = 8
-        geoopt_convergence_threshold = 1e-3
-        hf_initial_state = False
-
-    elif cli_args.molecule == "H2O":
-        input_geom = "./test_molecules/water.xyz"
-        spin = 0
-        charge = 0
-        symmetry = True
-        basis = "sto-3g"
-        ncas = 7  # Number of active space orbitals for CASCI
-        nelecas = (5, 5)  # (alpha, beta) electrons - 10 total
-        mapping_method = "bravyi_kitaev"
-        ansatz_type = "pauli_two_design"
-        reps = 2  # Number of repetitions for the ansatz
-        entanglement = "full"  # Entanglement pattern for the ansatz
-        vqe_optimizer = "COBYLA"  # Optimizer choice for VQE
-        max_vqe_iterations = 100
-        max_geoopt_iterations = 8
-        geoopt_convergence_threshold = 1e-3
-        hf_initial_state = True
+    Path("images").mkdir(parents=True, exist_ok=True)
 
     backend = AerSimulator()
+    jw_mapper = JordanWignerMapper()
 
-    with open(out_file, "w") as f:
-        f.write("VQE Geometry Optimization Results\n")
-        f.write("=" * 40 + "\n\n")
+    # -------------------------------------------------------------------------
+    # Ideal (exact) vs incrementally noisier Aer simulation for H2 (single-point)
+    # -------------------------------------------------------------------------
 
-    # Build Molecule and Run SCF
-    mol = molecule.build_molecule_from_xyz(input_geom, basis, spin, charge, symmetry)
-    mf = hamiltonian.run_scf_calculation(mol, method="RHF")
-    molecule.write_molecule_out(mol, out_file)
-    molecule.write_energy_out(mf, out_file)
+    def make_noisy_estimator(*, scale: float, p1_base: float = 0.001, p2_base: float = 0.01) -> EstimatorV2:
+        """Create an EstimatorV2 configured with a scaled depolarizing noise model."""
+        noise_model = NoiseModel()
+        p1 = float(scale) * p1_base
+        p2 = float(scale) * p2_base
 
-    # Get Hartree-Fock Fermionic Hamiltonian
-    ecore, h1e, h2e = hamiltonian.get_hf_hamiltonian(mf)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="Hartree-Fock")
+        noise_model.add_all_qubit_quantum_error(depolarizing_error(p1, 1), ["x", "sx", "rx", "ry", "rz"])
+        noise_model.add_all_qubit_quantum_error(depolarizing_error(p2, 2), ["cx", "cz"])
 
-    # Get Complete Active Space Fermionic Hamiltonian
-    ecore, h1e, h2e = hamiltonian.get_casci_hamiltonian(mf, ncas=ncas, nelecas=nelecas)
-    hamiltonian.write_hamiltonian_out(ecore, h1e, h2e, out_file, label="CASCI")
+        return EstimatorV2(
+            options={
+                "backend_options": {
+                    "method": "density_matrix",
+                    "noise_model": noise_model,
+                }
+            }
+        )
+
+    # Single-point H2 at ~0.74 Å (symmetric on z-axis)
+    h2_spec = MoleculeSpec(
+        atom="H 0 0 -0.37; H 0 0 0.37",
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        unit=DistanceUnit.ANGSTROM,
+    )
+    h2_problem = build_molecule_problem(
+        h2_spec,
+        freeze_core=False,
+        active_space=(2, 2),
+        sanitize_active_space=True,
+    )
+    h2_qubit_hamiltonian = map_to_qubit_hamiltonian(h2_problem, mapper="JordanWigner")
+    h2_ansatz = build_uccsd_ansatz(h2_problem, qubit_mapper=jw_mapper, initial_state=None, reps=1)
+
+    # Fair comparison: same initial parameters for all runs
+    rng = np.random.default_rng(42)
+    x0 = rng.random(h2_ansatz.num_parameters)
+
+    maxiter = 120
+    optimizer = COBYLA(maxiter=maxiter)
+
+    # Ideal baseline
+    ideal_estimator = EstimatorV2()
+    print("\n=== H2: ideal VQE (UCCSD) ===")
+    run_ideal = run_vqe_single_point(
+        problem=h2_problem,
+        qubit_hamiltonian=h2_qubit_hamiltonian,
+        ansatz=h2_ansatz,
+        optimizer=optimizer,
+        initial_params=x0,
+        backend=backend,
+        optimization_level=0,
+        seed=None,
+        verbose=False,
+        estimator=ideal_estimator,
+    )
+    e_ideal = float(run_ideal.result.fun)
+    print(f"H2 ideal: E = {e_ideal:.10f} Ha")
+
+    # Incremental noise scales (0.0 would duplicate ideal; start at small >0)
+    noise_scales = [0.25, 0.5, 1.0, 2.0, 4.0]
+
+    noisy_runs = {}
+    noisy_finals = []
+
+    for s in noise_scales:
+        noisy_estimator = make_noisy_estimator(scale=s, p1_base=0.001, p2_base=0.01)
+        print(f"\n=== H2: noisy VQE (UCCSD), scale={s:g} ===")
+
+        run_noisy = run_vqe_single_point(
+            problem=h2_problem,
+            qubit_hamiltonian=h2_qubit_hamiltonian,
+            ansatz=h2_ansatz,
+            optimizer=COBYLA(maxiter=maxiter),  # fresh optimizer per run
+            initial_params=x0,
+            backend=backend,  # nur fürs Transpiling/PassManager
+            optimization_level=0,
+            seed=None,
+            verbose=False,
+            estimator=noisy_estimator,
+        )
+
+        e_noisy = float(run_noisy.result.fun)
+        noisy_runs[s] = run_noisy
+        noisy_finals.append(e_noisy)
+        print(f"scale={s:g}: E = {e_noisy:.10f} Ha  (Δ={e_noisy - e_ideal:+.6e} Ha)")
+
+    # --- Plot 1: Convergence curves (ideal vs multiple noise levels)
+    plt.figure(figsize=(7, 5))
+    plt.plot(run_ideal.energies, label="ideal", linewidth=2.0)
+    for s in noise_scales:
+        plt.plot(noisy_runs[s].energies, label=f"noisy scale={s:g}", linewidth=1.4)
+
+    plt.xlabel("Cost function evaluations")
+    plt.ylabel("Energy (Ha)")
+    plt.title("H2 UCCSD VQE: ideal vs increasing noise")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("images/h2_uccsd_convergence_ideal_vs_noise_sweep.png", dpi=200)
+    plt.close()
+
+    # --- Plot 2: Final energy vs noise scale (+ ideal reference line)
+    plt.figure(figsize=(6, 4))
+    plt.plot(noise_scales, noisy_finals, marker="o", label="noisy final energy")
+    plt.axhline(e_ideal, linestyle="--", linewidth=1.5, label="ideal final energy")
+
+    plt.xlabel("Noise scale (multiplier on p1/p2)")
+    plt.ylabel("Final VQE energy (Ha)")
+    plt.title("H2 UCCSD VQE: final energy vs noise level")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("images/h2_uccsd_final_energy_vs_noise_scale.png", dpi=200)
+    plt.close()
+
 
     """  
-    These test functions can be uncommented to run different comparison tests
-    regarding the VQE optimization process.
+    This section is for running the desired bond scans for the diatomic molecules
     """
 
-    # Compare VQE with full and active space Hamiltonians at fixed geometry
-    # comparison.run_single_point_comparison(mf, backend, out_file, molecule="H2")
+    # Configure the bond-scan(s) you want to run here.
+    # Each entry: ((atom1, atom2), active_space)
+    scans = [
+        (("H", "H"), (2, 2)),
+        (("Li", "H"), (2, 3)),
+        (("F", "H"), (8, 6)),
+    ]
 
-    # Compare the influence of initial parameters on VQE optimization
-    # comparison.initial_parameters_influence(mf, backend, out_file)
+#    distances = np.linspace(0.5, 1.8, 30)
+#
+#    for (atom1, atom2), active_space in scans:
+#        print(f"\n=== Bond scan for {atom1}{atom2} ===")
+#        bond_scan_diatomic_vqe(
+#            atom1=atom1,
+#            atom2=atom2,
+#            distances=distances,
+#            basis="sto3g",
+#            charge=0,
+#            spin=0,
+#            unit=DistanceUnit.ANGSTROM,
+#            freeze_core=False,
+#            active_space=active_space,
+#            mapper="JordanWigner",
+#            ansatz_method="EfficientSU2",
+#            entanglement="linear",
+#            reps=2,
+#            optimizer_builder=lambda: COBYLA(maxiter=150),
+#            maxiter=150,
+#            backend=backend,
+#            optimization_level=0,
+#            seed=42,
+#            warm_start=True,
+#            plot=True,
+#            images_dir=Path("images"),
+#        )
+#
+    """  
+    This section is for running joint optimizations of
+    (diatomic bond distance + ansatz parameters).
+    """
 
-    # Compare the influence of optimizer choice on VQE optimization
-    # comparison.influence_optimizer_choice(mf, backend, out_file)
+    joint_jobs = [
+        # Each entry: ((atom1, atom2), active_space, initial_distance, (d_min, d_max))
+        (("H", "H"), (2, 2), 0.74, (0.4, 2.0)),
+        (("Li", "H"), (2, 3), 1.60, (0.8, 3.0)),
+        (("F", "H"), (8, 6), 0.92, (0.6, 2.0)),
+    ]
 
-    # Compare the influence of ansatz depth on VQE optimization
-    # comparison.influence_ansatz_depth(mf, backend, out_file)
+#    for (atom1, atom2), active_space, d0, window in joint_jobs:
+#        print(f"\n=== Joint optimization for {atom1}{atom2} ===")
+#        res = joint_optimize_diatomic_bond_length(
+#            atom1=atom1,
+#            atom2=atom2,
+#            initial_distance=d0,
+#            distance_window=window,
+#            penalty_strength=100.0,
+#            axis="x",
+#            symmetric_geometry=True,
+#            basis="sto3g",
+#            charge=0,
+#            spin=0,
+#            unit=DistanceUnit.ANGSTROM,
+#            freeze_core=False,
+#            active_space=active_space,
+#            mapper="JordanWigner",
+#            ansatz_kind="EfficientSU2",
+#            entanglement="linear",
+#            reps=2,
+#            optimizer=COBYLA(maxiter=200),
+#            maxiter=200,
+#            backend=backend,
+#            optimization_level=0,
+#            seed=42,
+#            initial_theta=None,
+#            verbose=True,
+#        )
+#
+#        print(f"Optimized: d = {res.optimal_distance:.6f} Å, E = {res.optimal_energy:.10f} Ha")
 
-    # Comparison of Jordan-Wigner and Bravyi-Kitaev Mappings
-    # comparison.compare_mappings(ecore, h1e, h2e, out_file)
 
-    # Build Qubit Hamiltonian
-    H_qubit = hamiltonian.build_qubit_hamiltonian(ecore, h1e, h2e, mapping_method)
-    hamiltonian.write_qubit_hamiltonian_out(H_qubit, out_file)
+    """  
+    This section compares H2 joint geometry optimization convergence
+    using EfficientSU2 vs UCCSD.
+    """
 
-    # Create Ansatz Circuit
-    num_qubits = H_qubit.num_qubits
-    use_hf_initial_state = hf_initial_state
+    print("\n=== H2 joint optimization: EfficientSU2 vs UCCSD ===")
 
-    ansatz = ansatz_module.create_ansatz(
-        num_qubits=num_qubits,
-        ansatz_type=ansatz_type,
-        reps=reps,
-        entanglement=entanglement,
-        num_electrons=nelecas,
-        use_hf_initial_state=use_hf_initial_state,
+    h2_window = (0.4, 2.0)
+    h2_d0 = 0.74
+
+    # EfficientSU2 joint optimization
+    h2_eff = joint_optimize_diatomic_bond_length(
+        atom1="H",
+        atom2="H",
+        initial_distance=h2_d0,
+        distance_window=h2_window,
+        penalty_strength=100.0,
+        axis="z",
+        symmetric_geometry=True,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        unit=DistanceUnit.ANGSTROM,
+        freeze_core=False,
+        active_space=(2, 2),
+        mapper="JordanWigner",
+        ansatz_kind="EfficientSU2",
+        entanglement="linear",
+        reps=2,
+        optimizer=COBYLA(maxiter=80),
+        maxiter=80,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        initial_theta=None,
+        verbose=False,
     )
 
-    ansatz_module.write_ansatz_out(ansatz, out_file)
-    ansatz_module.visualize_ansatz(ansatz, save_path="images/ansatz_circuit.png")
+    # UCCSD joint optimization
+    h2_uccsd = joint_optimize_diatomic_bond_length(
+        atom1="H",
+        atom2="H",
+        initial_distance=h2_d0,
+        distance_window=h2_window,
+        penalty_strength=100.0,
+        axis="z",
+        symmetric_geometry=True,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        unit=DistanceUnit.ANGSTROM,
+        freeze_core=False,
+        active_space=(2, 2),
+        mapper="JordanWigner",
+        ansatz_kind="UCCSD",
+        reps=1,
+        optimizer=COBYLA(maxiter=80),
+        maxiter=80,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        initial_theta=None,
+        verbose=False,
+    )
 
-    # Run Geometry Optimization
-    if mol.natm == 2:
+    print(
+        "EfficientSU2 optimum: "
+        f"d={h2_eff.optimal_distance:.6f} Å, E={h2_eff.optimal_energy:.10f} Ha"
+    )
+    print(
+        "UCCSD optimum       : "
+        f"d={h2_uccsd.optimal_distance:.6f} Å, E={h2_uccsd.optimal_energy:.10f} Ha"
+    )
 
-        # Test VQE single point
-        # optimization.vqe_single_point(
-        #     ansatz=ansatz,
-        #     H = H_qubit,
-        #     backend=backend,
-        #     out_file=out_file,
-        #     initial_params=None,
-        #     method = "COBYLA",
-        #     options={"maxiter": 100}
-        # )
+    # Plot energy + distance histories
+    fig, axs = plt.subplots(2, 1, figsize=(7, 7), sharex=True)
+    axs[0].plot(h2_eff.history_cost_energies, label="EfficientSU2 (cost)", linewidth=1.8)
+    axs[0].plot(h2_uccsd.history_cost_energies, label="UCCSD (cost)", linewidth=1.8)
+    axs[0].set_ylabel("Energy (Ha)")
+    axs[0].set_title("H2 joint optimization convergence")
+    axs[0].grid(True)
+    axs[0].legend()
 
-        # Test VQE PES scan
-        optimization.bond_scan(
-            ansatz=ansatz,
-            backend=backend,
-            out_file=out_file,
-            mol=mol,
-            distance_range=(0.6, 0.9),
-            num_points=30,
-            method=vqe_optimizer,
-            options={"maxiter": 200, "rhobeg": 1.2, "tol": 1e-9},
-            ncas=ncas,
-            nelecas=nelecas,
-            mapping_method=mapping_method,
-        )
+    axs[1].plot(h2_eff.history_distances, label="EfficientSU2 distance", linewidth=1.6)
+    axs[1].plot(h2_uccsd.history_distances, label="UCCSD distance", linewidth=1.6)
+    axs[1].set_xlabel("Cost function evaluations")
+    axs[1].set_ylabel("Bond distance (Å)")
+    axs[1].grid(True)
+    axs[1].legend()
 
-        # Try out the joint optimization method for diatomics
-        # optimization.joint_optimization_diatomic(
-        #     ansatz=ansatz,
-        #     backend=backend,
-        #     out_file=out_file,
-        #     mol=mol,
-        #     initial_params=None,
-        #     initial_distance=None,
-        #     max_iterations=max_geoopt_iterations,
-        #     convergence_threshold=geoopt_convergence_threshold,
-        #     learning_rate=0.1,  # For circuit parameters
-        #     learning_rate_geom=0.01,  # For geometry parameter
-        #     ncas=ncas,
-        #     nelecas=nelecas,
-        #     mapping_method=mapping_method,
-        # )
+    plt.tight_layout()
+    plt.savefig("images/h2_jointopt_convergence_effsu2_vs_uccsd.png", dpi=200)
+    plt.close(fig)
 
-        # optimization.geometry_optimization_diatomic(
-        #     ansatz=ansatz,
-        #     backend=backend,
-        #     out_file=out_file,
-        #     mol=mol,
-        #     method=vqe_optimizer,
-        #     convergence_threshold=geoopt_convergence_threshold,
-        #     step_method="backtracking",
-        #     max_iterations=max_geoopt_iterations,
-        #     options={"maxiter": max_vqe_iterations},
-        #     # Two stage optimization
-        #     use_two_stage_vqe=False,
-        #     stage1_maxiter=150,
-        #     stage2_maxiter=100,
-        #     ncas=ncas,
-        #     nelecas=nelecas,
-        #     mapping_method=mapping_method,
-        # )
+    print("\n=== Joint optimization for H2O (r1, r2, angle) with UCCSD ===")
 
-    elif mol.natm == 3:
-        optimization.geometry_optimization_triatomic(
-            ansatz=ansatz,
-            backend=backend,
-            out_file=out_file,
-            mol=mol,
-            max_iterations=max_geoopt_iterations,
-            convergence_threshold=geoopt_convergence_threshold,
-            method=vqe_optimizer,
-            step_size=0.05,
-            ncas=ncas,
-            nelecas=nelecas,
-            mapping_method=mapping_method,
-            options={"maxiter": max_vqe_iterations},
-        )
-    else:
-        raise ValueError(
-            "Geometry optimization currently supports only diatomic or triatomic molecules."
-        )
+    water_kwargs = dict(
+        initial_r1=1.0,
+        initial_r2=1.0,
+        initial_angle_deg=105.0,
+        r1_window=(0.7, 1.3),
+        r2_window=(0.7, 1.3),
+        angle_window_deg=(80.0, 130.0),
+        penalty_strength=100.0,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        unit=DistanceUnit.ANGSTROM,
+        freeze_core=True,
+        active_space=(8, 6),
+        mapper="JordanWigner",
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        initial_theta=None,
+        verbose=False,
+    )
+
+    water_uccsd = joint_optimize_water_geometry(
+        **water_kwargs,
+        ansatz_kind="UCCSD",
+        reps=1,
+        optimizer=COBYLA(maxiter=120),
+        maxiter=120,
+    )
+
+    print(
+        "H2O UCCSD optimum       : "
+        f"r1={water_uccsd.optimal_r1:.6f} Å, r2={water_uccsd.optimal_r2:.6f} Å, "
+        f"angle={water_uccsd.optimal_angle_deg:.3f} deg, E={water_uccsd.optimal_energy:.10f} Ha"
+    )
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

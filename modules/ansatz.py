@@ -1,157 +1,193 @@
-from qiskit.circuit.library import EfficientSU2, TwoLocal, pauli_two_design
-from qiskit import QuantumCircuit
+"""
+Ansatz utilities.
 
-"""  
-Still this ansatz thing is one main concern because VQE just doesnt converge
+This module centralizes ansatz construction for VQE runs.
 
+Supported categories
+--------------------
+1) Hardware-efficient (problem-agnostic)
+   - EfficientSU2
+   - TwoLocal
+   - RealAmplitudes
 
-Another thing we can look at if we still have time is this stuff from the Pennylane guys:
-google.com/search?q=VQE+hatree+fock+initial+state&oq=VQE+hatree+fock+initial+state&gs_lcrp=EgZjaHJvbWUyCwgAEEUYChg5GKABMgkIARAhGAoYoAEyCQgCECEYChigAdIBCDU2MDdqMGo0qAIAsAIB&sourceid=chrome&ie=UTF-8
+2) Chemistry-inspired (problem-specific, Qiskit Nature)
+   - HartreeFock (initial state)
+   - UCCSD (typically used with HartreeFock)
 """
 
-def create_hf_initial_state(num_qubits, num_electrons):
-    """  
-    Creates a HF-Initial state circuit 
+from __future__ import annotations
 
-    This works the following way:
+import inspect
+from typing import Literal, Optional
 
-    - For a given number of qubits and electrons, we prepare the Hartree-Fock state by applying X gates to the first 'num_electrons' qubits.
+from qiskit import QuantumCircuit
+from qiskit.circuit.library import EfficientSU2, TwoLocal, RealAmplitudes
 
+from qiskit_nature.second_q.circuit.library import UCCSD, HartreeFock
+from qiskit_nature.second_q.mappers import QubitMapper
+
+
+HardwareAnsatzKind = Literal["EfficientSU2", "TwoLocal", "RealAmplitudes"]
+ChemistryAnsatzKind = Literal["HartreeFock", "UCCSD"]
+AnsatzKind = Literal["EfficientSU2", "TwoLocal", "RealAmplitudes", "HartreeFock", "UCCSD"]
+
+
+def _ctor_accepts_kwarg(cls, kw: str) -> bool:
+    try:
+        sig = inspect.signature(cls.__init__)
+    except (TypeError, ValueError):
+        return False
+    return kw in sig.parameters
+
+
+def generate_ansatz(
+    num_qubits: int,
+    entanglement: str = "linear",
+    reps: int = 1,
+    method: HardwareAnsatzKind = "EfficientSU2",
+    *,
+    insert_barriers: bool = True,
+    # TwoLocal-specific knobs (optional)
+    two_local_rotation_blocks="ry",
+    two_local_entanglement_blocks="cz",
+) -> QuantumCircuit:
     """
-    n_alpha, n_beta =  num_electrons
-    hf_circuit = QuantumCircuit(num_qubits)
+    Backwards-compatible hardware-efficient ansatz generator.
 
-    # For Jordan-Wigner
-    # First half qubits = alpha spin, second half = beta spin
-    # Occupy the lowest energy orbitals
-    for i in range(n_alpha):
-        hf_circuit.x(i)  # Apply X gate to occupy alpha orbitals
-    for i in range(n_beta):
-        hf_circuit.x(num_qubits // 2 + i)  # Apply X gate to occupy beta orbitals
+    This mirrors the previous `generate_ansatz(...)` you had in main.py.
 
-    return hf_circuit
-
-def create_uccsd_ansatz(num_qubits, num_electrons, reps=1):
-    """   
-    Creates UCCSD (Unitary Coupled Cluster with Singles and Doubles) ansatz
-    This one is actually chemically inspired and should perform better than generic ansatzes
+    Parameters
+    ----------
+    num_qubits:
+        Number of qubits of the target qubit Hamiltonian.
+    entanglement, reps:
+        Standard circuit settings.
+    method:
+        One of: "EfficientSU2", "TwoLocal", "RealAmplitudes"
     """
-    try: 
-        from qiskit_nature.second_q.circuit.library import UCCSD
-        from qiskit_nature.second_q.mappers import JordanWignerMapper 
+    if method == "EfficientSU2":
+        return EfficientSU2(
+            num_qubits,
+            entanglement=entanglement,
+            reps=reps,
+            insert_barriers=insert_barriers,
+        )
 
-        num_spatial_orbitals = num_qubits // 2
+    if method == "TwoLocal":
+        return TwoLocal(
+            num_qubits,
+            rotation_blocks=two_local_rotation_blocks,
+            entanglement_blocks=two_local_entanglement_blocks,
+            entanglement=entanglement,
+            reps=reps,
+            insert_barriers=insert_barriers,
+        )
+
+    if method == "RealAmplitudes":
+        return RealAmplitudes(
+            num_qubits,
+            entanglement=entanglement,
+            reps=reps,
+            insert_barriers=insert_barriers,
+        )
+
+    raise ValueError(f"Unsupported hardware ansatz method: {method}")
+
+
+def build_hartree_fock_initial_state(
+    problem,
+    *,
+    qubit_mapper: QubitMapper,
+) -> QuantumCircuit:
+    """
+    Build the Hartree-Fock initial state for a given ElectronicStructureProblem.
+    """
+    return HartreeFock(
+        num_spatial_orbitals=problem.num_spatial_orbitals,
+        num_particles=problem.num_particles,
+        qubit_mapper=qubit_mapper,
+    )
+
+
+def build_uccsd_ansatz(
+    problem,
+    *,
+    qubit_mapper: QubitMapper,
+    initial_state: Optional[QuantumCircuit] = None,
+    reps: int = 1,
+) -> QuantumCircuit:
+    """
+    Build a UCCSD ansatz for a given ElectronicStructureProblem.
+
+    Notes
+    -----
+    - UCCSD is chemistry-inspired and usually used with a Hartree-Fock initial state.
+    - Depending on your installed qiskit-nature version, UCCSD may or may not accept `reps`.
+      This function detects that safely.
+    """
+    if initial_state is None:
+        initial_state = build_hartree_fock_initial_state(problem, qubit_mapper=qubit_mapper)
+
+    kwargs = dict(
+        num_spatial_orbitals=problem.num_spatial_orbitals,
+        num_particles=problem.num_particles,
+        qubit_mapper=qubit_mapper,
+        initial_state=initial_state,
+    )
+
+    if _ctor_accepts_kwarg(UCCSD, "reps"):
+        kwargs["reps"] = reps
+
+    return UCCSD(**kwargs)
+
+
+def build_ansatz(
+    kind: AnsatzKind,
+    *,
+    # hardware-efficient inputs
+    num_qubits: int | None = None,
+    entanglement: str = "linear",
+    reps: int = 1,
+    # chemistry inputs
+    problem=None,
+    qubit_mapper: QubitMapper | None = None,
+    initial_state: Optional[QuantumCircuit] = None,
+) -> QuantumCircuit:
+    """
+    Unified ansatz builder.
+
+    Examples
+    --------
+    - Hardware-efficient:
+        build_ansatz("EfficientSU2", num_qubits=4, entanglement="linear", reps=2)
+
+    - Chemistry-inspired:
         mapper = JordanWignerMapper()
+        build_ansatz("UCCSD", problem=problem, qubit_mapper=mapper)
+    """
+    if kind in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
+        if num_qubits is None:
+            raise ValueError("num_qubits is required for hardware-efficient ansatz.")
+        return generate_ansatz(
+            num_qubits=num_qubits,
+            entanglement=entanglement,
+            reps=reps,
+            method=kind,  # type: ignore[arg-type]
+        )
 
-        ansatz = UCCSD(
-            num_spatial_orbitals=num_spatial_orbitals,
-            num_particles=num_electrons,
-            qubit_mapper=mapper,
+    if kind == "HartreeFock":
+        if problem is None or qubit_mapper is None:
+            raise ValueError("problem and qubit_mapper are required for HartreeFock.")
+        return build_hartree_fock_initial_state(problem, qubit_mapper=qubit_mapper)
+
+    if kind == "UCCSD":
+        if problem is None or qubit_mapper is None:
+            raise ValueError("problem and qubit_mapper are required for UCCSD.")
+        return build_uccsd_ansatz(
+            problem,
+            qubit_mapper=qubit_mapper,
+            initial_state=initial_state,
             reps=reps,
         )
-        return ansatz
-    except ImportError:
-        raise ImportError("qiskit-nature is required for UCCSD ansatz. Please install it via 'pip install qiskit-nature'.")
-    
-def create_pauli_two_design_ansatz(num_qubits, reps=2, entanglement="full", initial_state=None):
-    """
-    Create a Pauli Two Design ansatz circuit for VQE
 
-    Args:
-        num_qubits (int): Number of qubits
-        reps (int): Number of repetitions of the ansatz layers
-        entanglement (str): Entanglement pattern ("linear", "full", etc.)
-    """
-    var_circuit = pauli_two_design(
-        num_qubits=num_qubits, reps=reps, insert_barriers=True
-    )
-    if initial_state is not None:
-        ansatz = initial_state.compose(var_circuit)
-    else:
-        ansatz = var_circuit
-
-
-    return ansatz
-
-def create_hardware_efficient_ansatz(num_qubits, reps=2, entanglement="full", initial_state=None):
-    """
-    Create a Hardware Efficient ansatz circuit for VQE
-
-    Args:
-        num_qubits (int): Number of qubits
-        reps (int): Number of repetitions of the ansatz layers
-        entanglement (str): Entanglement pattern ("linear", "full", etc.)
-    """
-    var_circuit = EfficientSU2(
-        num_qubits=num_qubits,
-        reps=reps,
-        entanglement=entanglement,
-        insert_barriers=True,
-    )
-    if initial_state is not None:
-        ansatz = initial_state.compose(var_circuit)
-    else:
-        ansatz = var_circuit
-
-    return ansatz
-
-def create_ansatz(num_qubits,
-                  ansatz_type,
-                  reps, 
-                  entanglement,
-                  num_electrons,
-                  use_hf_initial_state):
-    """
-    Factory function to create ansatz circuits based on specified type
-    """ 
-    # Create HF initial state if required
-    initial_state = None
-    if use_hf_initial_state and num_electrons is not None:
-        initial_state = create_hf_initial_state(num_qubits, num_electrons)
-
-    if ansatz_type == "uccsd":
-        if num_electrons is None:
-            raise ValueError("num_electrons must be provided for UCCSD ansatz")
-        ansatz = create_uccsd_ansatz(num_qubits, num_electrons, reps=reps)
-    elif ansatz_type == "pauli_two_design":
-        ansatz = create_pauli_two_design_ansatz(num_qubits, reps=reps, entanglement=entanglement, initial_state=initial_state)
-    elif ansatz_type == "efficient_su2":
-        ansatz = create_hardware_efficient_ansatz(num_qubits, reps=reps, entanglement=entanglement, initial_state=initial_state)
-    else:
-        raise ValueError(f"Unsupported ansatz type: {ansatz_type}")
-    return ansatz
-
-
-def visualize_ansatz(ansatz, save_path):
-    """
-    Visualize the ansatz circuit
-
-    Args:
-        ansatz: Qiskit QuantumCircuit object
-        save_path (str): Saves the circuit diagram to the given path
-    """
-    fig = ansatz.decompose().draw(output="mpl", fold=-1, style="iqp")
-    fig.savefig(save_path, dpi=300, bbox_inches="tight")
-
-    return fig
-
-
-# Logging functions
-
-
-def write_ansatz_out(ansatz, out_file):
-    """
-    Write ansatz details to output file
-
-    Args:
-        ansatz: Qiskit QuantumCircuit object
-        out_file (str): Path to output file
-    """
-    with open(out_file, "a") as f:
-        f.write(f"\n === {type(ansatz).__name__} Ansatz Details ===\n")
-        f.write(f"Number of qubits: {ansatz.num_qubits}\n")
-        f.write(f"Number of parameters: {ansatz.num_parameters}\n")
-        f.write(f"Depth: {ansatz.depth()}\n")
-        f.write("\nCircuit:\n")
-        f.write(ansatz.decompose().draw(output="text").single_string())
-        f.write("\n")
+    raise ValueError(f"Unsupported ansatz kind: {kind}")
