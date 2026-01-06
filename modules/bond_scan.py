@@ -47,41 +47,6 @@ def ensure_dir(path: str | Path) -> Path:
     return p
 
 
-def diatomic_atom_string(
-    atom1: str,
-    atom2: str,
-    distance: float,
-    *,
-    axis: str = "x",
-    symmetric: bool = True,
-) -> str:
-    """Create a PySCF atom string for a diatomic molecule.
-
-    Parameters
-    ----------
-    symmetric:
-        If True, place atoms at +/- distance/2 around origin.
-        If False, place atoms at 0 and +distance.
-    """
-
-    axis = axis.lower()
-    if axis not in {"x", "y", "z"}:
-        raise ValueError("axis must be one of: 'x', 'y', 'z'")
-
-    if symmetric:
-        a = -0.5 * float(distance)
-        b = +0.5 * float(distance)
-        p1 = {"x": (a, 0.0, 0.0), "y": (0.0, a, 0.0), "z": (0.0, 0.0, a)}[axis]
-        p2 = {"x": (b, 0.0, 0.0), "y": (0.0, b, 0.0), "z": (0.0, 0.0, b)}[axis]
-    else:
-        a = 0.0
-        b = float(distance)
-        p1 = {"x": (a, 0.0, 0.0), "y": (0.0, a, 0.0), "z": (0.0, 0.0, a)}[axis]
-        p2 = {"x": (b, 0.0, 0.0), "y": (0.0, b, 0.0), "z": (0.0, 0.0, b)}[axis]
-
-    return f"{atom1} {p1[0]} {p1[1]} {p1[2]}; {atom2} {p2[0]} {p2[1]} {p2[2]}"
-
-
 def bond_scan_diatomic_vqe(
     *,
     atom1: str,
@@ -107,10 +72,62 @@ def bond_scan_diatomic_vqe(
 ):
     """Run a VQE bond scan for a diatomic molecule.
 
+    For each bond distance, builds the molecular Hamiltonian, maps it to qubits,
+    constructs an ansatz, and runs VQE optimization. Optionally warm-starts each
+    geometry with the previous optimal parameters if the ansatz dimension is unchanged.
+
+    Parameters
+    ----------
+    atom1 : str
+        Symbol of the first atom (e.g., 'H', 'Li').
+    atom2 : str
+        Symbol of the second atom.
+    distances : np.ndarray | list[float]
+        Bond distances (in Angstroms) to scan.
+    basis : str
+        Basis set for PySCF (e.g., 'sto3g', '6-31g').
+    charge : int
+        Total molecular charge.
+    spin : int
+        Number of unpaired electrons (2S).
+    freeze_core : bool
+        Whether to freeze core orbitals.
+    active_space : tuple[int, int] | None
+        Active space as (num_electrons, num_spatial_orbitals), or None for full space.
+    mapper : str
+        Qubit mapper: 'JordanWigner', 'BravyiKitaev', or 'Parity'.
+    ansatz_method : str
+        Ansatz type: 'EfficientSU2', 'TwoLocal', 'RealAmplitudes', or 'UCCSD'.
+    entanglement : str
+        Entanglement pattern for hardware-efficient ansätze (e.g., 'linear', 'full').
+        Ignored for chemistry-inspired ansätze like UCCSD.
+    reps : int
+        Number of repetitions/layers in the ansatz.
+    optimizer_builder : callable
+        Function returning an optimizer instance (e.g., lambda: COBYLA(maxiter=200)).
+    maxiter : int
+        Maximum optimizer iterations (used as fallback if optimizer_builder is None).
+    backend : Backend
+        Qiskit backend for simulation (e.g., AerSimulator()).
+    optimization_level : int
+        Qiskit transpiler optimization level (0-3).
+    seed : int
+        Random seed for initial parameters (ignored when warm-starting).
+    warm_start : bool
+        If True, initialize each geometry with the previous optimal parameters.
+    plot : bool
+        If True, save energy and convergence plots to images_dir.
+    images_dir : str | Path
+        Directory for saving plots.
+
     Returns
     -------
     dict
-        distances, energies, convergence, optimal_params
+        Dictionary with keys:
+        - 'distances': np.ndarray of bond distances
+        - 'energies': np.ndarray of final VQE energies (Ha)
+        - 'convergence': list of lists, each containing the energy trajectory
+        - 'optimal_params': list of np.ndarray, final parameters for each distance
     """
 
     images_dir = ensure_dir(images_dir)
