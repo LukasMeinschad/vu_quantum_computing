@@ -34,7 +34,11 @@ from modules.ansatz import build_ansatz
 from modules.molecule import MoleculeSpec, build_molecule_problem
 from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
 from modules.vqe import run_vqe_single_point
-from qiskit_nature.second_q.mappers import JordanWignerMapper, ParityMapper, BravyiKitaevMapper
+from qiskit_nature.second_q.mappers import (
+    JordanWignerMapper,
+    ParityMapper,
+    BravyiKitaevMapper,
+)
 
 
 def ensure_dir(path: str | Path) -> Path:
@@ -83,28 +87,25 @@ def bond_scan_diatomic_vqe(
     atom1: str,
     atom2: str,
     distances: np.ndarray | list[float],
-    basis: str = "sto3g",
-    charge: int = 0,
-    spin: int = 0,
-    unit: DistanceUnit = DistanceUnit.ANGSTROM,
-    freeze_core: bool = False,
-    active_space: (
-        tuple[int, int] | None
-    ) = None,  # (num_electrons, num_spatial_orbitals)
-    mapper: str = "JordanWigner",
-    ansatz_method: str = "EfficientSU2",
-    entanglement: str = "linear",
-    reps: int = 1,
-    optimizer_builder=None,  # callable like: lambda: COBYLA(maxiter=200)
-    maxiter: int = 200,
-    backend=None,
-    optimization_level: int = 0,
-    seed: int = 42,
-    warm_start: bool = True,
-    plot: bool = True,
-    images_dir: str | Path = "images",
-    axis: str = "x",
-    symmetric_geometry: bool = True,
+    basis: str,
+    charge: int,
+    spin: int,
+    freeze_core: bool,
+    active_space: tuple[int, int] | None,  # (num_electrons, num_spatial_orbitals)
+    mapper: str,
+    ansatz_method: str,
+    entanglement: str,
+    reps: int,
+    optimizer_builder,  # callable like: lambda: COBYLA(maxiter=200)
+    maxiter: int,
+    backend,
+    optimization_level: int,
+    seed: int,
+    warm_start: bool,
+    plot: bool,
+    images_dir: str | Path,
+    axis: str,
+    symmetric_geometry: bool,
 ):
     """Run a VQE bond scan for a diatomic molecule.
 

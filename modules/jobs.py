@@ -478,6 +478,8 @@ def run_h2_bond_scan() -> dict[str, Any]:
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
+        axis="x",
+        symmetric_geometry=True,
     )
 
     # Save data to file
@@ -522,6 +524,8 @@ def run_lih_bond_scan() -> dict[str, Any]:
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
+        axis="x",
+        symmetric_geometry=True,
     )
 
     # Save data to file
@@ -566,6 +570,8 @@ def run_hf_bond_scan() -> dict[str, Any]:
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
+        axis="x",
+        symmetric_geometry=True,
     )
 
     # Save data to file
@@ -578,63 +584,6 @@ def run_hf_bond_scan() -> dict[str, Any]:
         json.dump(data_to_save, f, indent=2)
 
     return res
-
-
-def run_diatomic_bond_scans() -> dict[str, Any]:
-    """Run bond scans for H2, LiH, and HF using a shared configuration."""
-
-    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-
-    backend = AerSimulator()
-
-    scans = [
-        (("H", "H"), (2, 2)),
-        (("Li", "H"), (2, 3)),
-        (("H", "F"), (8, 6)),
-    ]
-
-    distances = np.linspace(0.5, 1.8, 30)
-
-    results: dict[str, Any] = {}
-
-    for (atom1, atom2), active_space in scans:
-        print(f"\n=== Bond scan for {atom1}{atom2} ===")
-        res = bond_scan_diatomic_vqe(
-            atom1=atom1,
-            atom2=atom2,
-            distances=distances,
-            basis="sto3g",
-            charge=0,
-            spin=0,
-            freeze_core=False,
-            active_space=active_space,
-            mapper="JordanWigner",
-            ansatz_method="EfficientSU2",
-            entanglement="linear",
-            reps=2,
-            optimizer_builder=lambda: COBYLA(maxiter=150),
-            maxiter=150,
-            backend=backend,
-            optimization_level=0,
-            seed=42,
-            warm_start=True,
-            plot=True,
-            images_dir=IMAGES_DIR,
-        )
-        results[f"{atom1}{atom2}"] = res
-
-    # Save data to file
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    data_to_save = {}
-    for key, res in results.items():
-        data_to_save[key] = {
-            "distances": [float(d) for d in res["distances"]],
-            "energies": [float(e) for e in res["energies"]],
-        }
-    with open(DATA_DIR / "diatomic_bond_scans.json", "w") as f:
-        json.dump(data_to_save, f, indent=2)
-
-    return results
 
 
 def run_h2o_joint_optimization() -> Any:
