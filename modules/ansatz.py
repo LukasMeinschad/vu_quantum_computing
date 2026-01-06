@@ -6,18 +6,18 @@ This module centralizes ansatz construction for VQE runs.
 Supported categories
 --------------------
 1) Hardware-efficient (problem-agnostic)
-   - EfficientSU2
-   - TwoLocal
-   - RealAmplitudes
+    - EfficientSU2
+    - TwoLocal
+    - RealAmplitudes
 
 2) Chemistry-inspired (problem-specific, Qiskit Nature)
-   - HartreeFock (initial state)
-   - UCCSD (typically used with HartreeFock)
+    - HartreeFock (initial state)
+    - UCCSD (typically used with HartreeFock)
 """
 
-import inspect
-
 from __future__ import annotations
+
+import inspect
 from typing import Optional
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import EfficientSU2, TwoLocal, RealAmplitudes

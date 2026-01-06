@@ -140,7 +140,7 @@ def build_molecule_problem(
     active_space: (
         tuple[int, int] | None
     ) = None,  # (num_electrons, num_spatial_orbitals)
-    sanitize_active_space: bool = True,
+    sanitize_active_space_flag: bool = True,
 ):
     """
     Build a Qiskit Nature ElectronicStructureProblem using PySCFDriver.
@@ -165,7 +165,7 @@ def build_molecule_problem(
 
     if active_space is not None:
         nelec, norb = active_space
-        if sanitize_active_space:
+        if sanitize_active_space_flag:
             nelec, norb = sanitize_active_space(problem, (nelec, norb))
         problem = ActiveSpaceTransformer(
             num_electrons=nelec, num_spatial_orbitals=norb

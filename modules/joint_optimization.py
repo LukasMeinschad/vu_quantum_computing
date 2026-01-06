@@ -281,7 +281,7 @@ def joint_optimize_diatomic_bond_length(
         ref_spec,
         freeze_core=freeze_core,
         active_space=active_space,
-        sanitize_active_space=True,
+        sanitize_active_space_flag=True,
     )
 
     qubit_mapper = make_qubit_mapper(mapper=mapper, problem=ref_problem)
@@ -348,7 +348,7 @@ def joint_optimize_diatomic_bond_length(
             spec,
             freeze_core=freeze_core,
             active_space=active_space,
-            sanitize_active_space=True,
+            sanitize_active_space_flag=True,
         )
 
         qubit_op = qubit_mapper.map(build_fermionic_hamiltonian(problem))
@@ -577,7 +577,7 @@ def joint_optimize_water_geometry(
         ref_spec,
         freeze_core=freeze_core,
         active_space=active_space,
-        sanitize_active_space=True,
+        sanitize_active_space_flag=True,
     )
 
     qubit_mapper = make_qubit_mapper(mapper=mapper, problem=ref_problem)
@@ -658,7 +658,7 @@ def joint_optimize_water_geometry(
             spec,
             freeze_core=freeze_core,
             active_space=active_space,
-            sanitize_active_space=True,
+            sanitize_active_space_flag=True,
         )
 
         qubit_op = qubit_mapper.map(build_fermionic_hamiltonian(problem))

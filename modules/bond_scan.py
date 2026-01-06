@@ -17,6 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from qiskit_aer import AerSimulator
@@ -140,7 +143,7 @@ def bond_scan_diatomic_vqe(
             spec,
             freeze_core=freeze_core,
             active_space=active_space,
-            sanitize_active_space=True,
+            sanitize_active_space_flag=True,
         )
 
         qubit_hamiltonian = map_to_qubit_hamiltonian(problem_used, mapper=mapper)

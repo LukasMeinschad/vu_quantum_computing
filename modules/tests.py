@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from qiskit_algorithms.optimizers import COBYLA
@@ -114,7 +117,7 @@ def compare_ansatz_types_h2(
         spec,
         freeze_core=False,
         active_space=active_space,
-        sanitize_active_space=True,
+        sanitize_active_space_flag=True,
     )
 
     qubit_hamiltonian = map_to_qubit_hamiltonian(problem, mapper=mapper_name)
@@ -235,7 +238,7 @@ def compare_optimizers_h2_uccsd(
         spec,
         freeze_core=False,
         active_space=active_space,
-        sanitize_active_space=True,
+        sanitize_active_space_flag=True,
     )
 
     qubit_hamiltonian = map_to_qubit_hamiltonian(problem, mapper=mapper_name)
@@ -324,7 +327,7 @@ def compare_entanglement_and_reps_h2(
         spec,
         freeze_core=False,
         active_space=active_space,
-        sanitize_active_space=True,
+        sanitize_active_space_flag=True,
     )
 
     qubit_hamiltonian = map_to_qubit_hamiltonian(problem, mapper=mapper_name)
