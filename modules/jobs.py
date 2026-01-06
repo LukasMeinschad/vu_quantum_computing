@@ -298,6 +298,156 @@ def run_h2_joint_comparison() -> dict[str, Any]:
     }
 
 
+def run_h2_joint_optimization() -> dict[str, Any]:
+    """Run H2 joint optimization with EfficientSU2."""
+
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    backend = AerSimulator()
+
+    print("\n=== H2 joint optimization ===")
+    result = joint_optimize_diatomic_bond_length(
+        atom1="H",
+        atom2="H",
+        initial_distance=0.74,
+        distance_window=(0.4, 2.0),
+        penalty_strength=100.0,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        freeze_core=False,
+        active_space=(2, 2),
+        mapper="JordanWigner",
+        ansatz_type="UCCSD",
+        entanglement="linear",
+        reps=2,
+        optimizer=COBYLA(maxiter=80),
+        maxiter=80,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        initial_theta=None,
+        verbose=True,
+    )
+
+    print(
+        f"H2 optimum: d={result.optimal_distance:.6f} Å, E={result.optimal_energy:.10f} Ha"
+    )
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "optimal_distance": float(result.optimal_distance),
+        "optimal_energy": float(result.optimal_energy),
+        "history_cost_energies": [float(e) for e in result.history_cost_energies],
+        "history_distances": [float(d) for d in result.history_distances],
+        "history_raw_energies": [float(e) for e in result.history_raw_energies],
+    }
+    with open(DATA_DIR / "h2_joint_optimization.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
+    return result
+
+
+def run_lih_joint_optimization() -> dict[str, Any]:
+    """Run LiH joint optimization with EfficientSU2."""
+
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    backend = AerSimulator()
+
+    print("\n=== LiH joint optimization ===")
+    result = joint_optimize_diatomic_bond_length(
+        atom1="Li",
+        atom2="H",
+        initial_distance=1.6,
+        distance_window=(0.8, 3.0),
+        penalty_strength=100.0,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        freeze_core=False,
+        active_space=(2, 3),
+        mapper="JordanWigner",
+        ansatz_type="UCCSD",
+        entanglement="linear",
+        reps=2,
+        optimizer=COBYLA(maxiter=100),
+        maxiter=100,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        initial_theta=None,
+        verbose=True,
+    )
+
+    print(
+        f"LiH optimum: d={result.optimal_distance:.6f} Å, E={result.optimal_energy:.10f} Ha"
+    )
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "optimal_distance": float(result.optimal_distance),
+        "optimal_energy": float(result.optimal_energy),
+        "history_cost_energies": [float(e) for e in result.history_cost_energies],
+        "history_distances": [float(d) for d in result.history_distances],
+        "history_raw_energies": [float(e) for e in result.history_raw_energies],
+    }
+    with open(DATA_DIR / "lih_joint_optimization.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
+    return result
+
+
+def run_hf_joint_optimization() -> dict[str, Any]:
+    """Run HF joint optimization with EfficientSU2."""
+
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    backend = AerSimulator()
+
+    print("\n=== HF joint optimization ===")
+    result = joint_optimize_diatomic_bond_length(
+        atom1="H",
+        atom2="F",
+        initial_distance=0.92,
+        distance_window=(0.5, 1.5),
+        penalty_strength=100.0,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        freeze_core=False,
+        active_space=(8, 6),
+        mapper="JordanWigner",
+        ansatz_type="UCCSD",
+        entanglement="linear",
+        reps=2,
+        optimizer=COBYLA(maxiter=100, rhobeg=0.5),
+        maxiter=100,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        initial_theta=None,
+        verbose=True,
+    )
+
+    print(
+        f"HF optimum: d={result.optimal_distance:.6f} Å, E={result.optimal_energy:.10f} Ha"
+    )
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "optimal_distance": float(result.optimal_distance),
+        "optimal_energy": float(result.optimal_energy),
+        "history_cost_energies": [float(e) for e in result.history_cost_energies],
+        "history_distances": [float(d) for d in result.history_distances],
+        "history_raw_energies": [float(e) for e in result.history_raw_energies],
+    }
+    with open(DATA_DIR / "hf_joint_optimization.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
+    return result
+
+
 def run_h2_bond_scan() -> dict[str, Any]:
     """Run bond scan for H2."""
 
