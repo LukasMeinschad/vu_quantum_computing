@@ -5,11 +5,15 @@ This module implements a VQE bond scan for *diatomic* molecules.
 For each bond distance it:
 1) builds an ElectronicStructureProblem via `modules.molecule.build_molecule_problem`
 2) maps the fermionic Hamiltonian to a qubit operator via `modules.qubit_hamiltonian`
-3) builds an ansatz circuit via `modules.ansatz.generate_ansatz`
+3) builds an ansatz circuit via `modules.ansatz.build_ansatz` (supports both hardware-efficient and chemistry-inspired)
 4) runs a single-point VQE via `modules.vqe.run_vqe_single_point`
 
 It can optionally warm-start subsequent geometries with the previously-optimized
 parameters and it saves plots into the images/ folder.
+
+Supported ansatz types:
+- Hardware-efficient: EfficientSU2, TwoLocal, RealAmplitudes
+- Chemistry-inspired: UCCSD
 """
 
 from __future__ import annotations
@@ -26,10 +30,11 @@ from qiskit_aer import AerSimulator
 from qiskit_algorithms.optimizers import COBYLA
 from qiskit_nature.units import DistanceUnit
 
-from modules.ansatz import generate_ansatz
+from modules.ansatz import build_ansatz
 from modules.molecule import MoleculeSpec, build_molecule_problem
 from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
 from modules.vqe import run_vqe_single_point
+from qiskit_nature.second_q.mappers import JordanWignerMapper
 
 
 def ensure_dir(path: str | Path) -> Path:
@@ -148,12 +153,21 @@ def bond_scan_diatomic_vqe(
 
         qubit_hamiltonian = map_to_qubit_hamiltonian(problem_used, mapper=mapper)
 
-        ansatz = generate_ansatz(
-            num_qubits=qubit_hamiltonian.num_qubits,
-            method=ansatz_method,
-            reps=reps,
-            entanglement=entanglement,
-        )
+        if ansatz_method in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
+            ansatz = build_ansatz(
+                ansatz_method,
+                num_qubits=qubit_hamiltonian.num_qubits,
+                reps=reps,
+                entanglement=entanglement,
+            )
+        else:
+            qubit_mapper = JordanWignerMapper()
+            ansatz = build_ansatz(
+                ansatz_method,
+                problem=problem_used,
+                qubit_mapper=qubit_mapper,
+                reps=reps,
+            )
 
         init = None
         if (

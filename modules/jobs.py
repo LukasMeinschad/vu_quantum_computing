@@ -298,6 +298,138 @@ def run_h2_joint_comparison() -> dict[str, Any]:
     }
 
 
+def run_h2_bond_scan() -> dict[str, Any]:
+    """Run bond scan for H2."""
+
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+    backend = AerSimulator()
+    distances = np.linspace(0.4, 1.0, 30)
+
+    print("\n=== Bond scan for H2 ===")
+    res = bond_scan_diatomic_vqe(
+        atom1="H",
+        atom2="H",
+        distances=distances,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        freeze_core=False,
+        active_space=(2, 2),
+        mapper="JordanWigner",
+        ansatz_method="UCCSD",
+        entanglement="linear",
+        reps=2,
+        optimizer_builder=lambda: COBYLA(maxiter=150),
+        maxiter=150,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        warm_start=True,
+        plot=True,
+        images_dir=IMAGES_DIR,
+    )
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "distances": [float(d) for d in res["distances"]],
+        "energies": [float(e) for e in res["energies"]],
+    }
+    with open(DATA_DIR / "h2_bond_scan.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
+    return res
+
+
+def run_lih_bond_scan() -> dict[str, Any]:
+    """Run bond scan for LiH."""
+
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+    backend = AerSimulator()
+    distances = np.linspace(1.1, 1.9, 30)
+
+    print("\n=== Bond scan for LiH ===")
+    res = bond_scan_diatomic_vqe(
+        atom1="Li",
+        atom2="H",
+        distances=distances,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        freeze_core=False,
+        active_space=(2, 3),
+        mapper="JordanWigner",
+        ansatz_method="UCCSD",
+        entanglement="linear",
+        reps=2,
+        optimizer_builder=lambda: COBYLA(maxiter=150),
+        maxiter=150,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        warm_start=True,
+        plot=True,
+        images_dir=IMAGES_DIR,
+    )
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "distances": [float(d) for d in res["distances"]],
+        "energies": [float(e) for e in res["energies"]],
+    }
+    with open(DATA_DIR / "lih_bond_scan.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
+    return res
+
+
+def run_hf_bond_scan() -> dict[str, Any]:
+    """Run bond scan for HF."""
+
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+    backend = AerSimulator()
+    distances = np.linspace(0.5, 1.8, 30)
+
+    print("\n=== Bond scan for HF ===")
+    res = bond_scan_diatomic_vqe(
+        atom1="H",
+        atom2="F",
+        distances=distances,
+        basis="sto3g",
+        charge=0,
+        spin=0,
+        freeze_core=False,
+        active_space=(8, 6),
+        mapper="JordanWigner",
+        ansatz_method="UCCSD",
+        entanglement="linear",
+        reps=2,
+        optimizer_builder=lambda: COBYLA(maxiter=150),
+        maxiter=150,
+        backend=backend,
+        optimization_level=0,
+        seed=42,
+        warm_start=True,
+        plot=True,
+        images_dir=IMAGES_DIR,
+    )
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "distances": [float(d) for d in res["distances"]],
+        "energies": [float(e) for e in res["energies"]],
+    }
+    with open(DATA_DIR / "hf_bond_scan.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
+    return res
+
+
 def run_diatomic_bond_scans() -> dict[str, Any]:
     """Run bond scans for H2, LiH, and HF using a shared configuration."""
 
