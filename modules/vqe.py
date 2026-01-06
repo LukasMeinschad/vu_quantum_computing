@@ -15,10 +15,16 @@ Included
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import numpy as np
 from types import SimpleNamespace
+
+from qiskit_aer import AerSimulator
+from qiskit_aer.primitives import EstimatorV2
+from qiskit_algorithms.optimizers import COBYLA
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+from qiskit_algorithms import MinimumEigensolverResult
 
 
 @dataclass(frozen=True)
@@ -46,9 +52,6 @@ def interpret_expectation_value(exp_val: Any, problem: Any) -> float:
 	float
 		Interpreted total energy in Hartree.
 	"""
-
-	from qiskit_algorithms import MinimumEigensolverResult
-
 	ev = np.real(exp_val)
 	if isinstance(ev, np.ndarray):
 		ev = ev.item() if ev.size == 1 else float(ev.ravel()[0])
@@ -96,12 +99,6 @@ def run_vqe_single_point(
 	- Stored energies are per cost-function evaluation (not necessarily optimizer
 	  iterations for all optimizers).
 	"""
-
-	from qiskit_aer import AerSimulator
-	from qiskit_aer.primitives import EstimatorV2
-	from qiskit_algorithms.optimizers import COBYLA
-	from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-
 	if backend is None:
 		backend = AerSimulator()
 
