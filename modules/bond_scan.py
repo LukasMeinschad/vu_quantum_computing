@@ -34,7 +34,7 @@ from modules.ansatz import build_ansatz
 from modules.molecule import MoleculeSpec, build_molecule_problem
 from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
 from modules.vqe import run_vqe_single_point
-from qiskit_nature.second_q.mappers import JordanWignerMapper
+from qiskit_nature.second_q.mappers import JordanWignerMapper, ParityMapper, BravyiKitaevMapper
 
 
 def ensure_dir(path: str | Path) -> Path:
@@ -115,8 +115,10 @@ def bond_scan_diatomic_vqe(
     """
 
     images_dir = ensure_dir(images_dir)
+
     if backend is None:
         backend = AerSimulator()
+
     if optimizer_builder is None:
         optimizer_builder = lambda: COBYLA(maxiter=maxiter)
 
@@ -161,7 +163,15 @@ def bond_scan_diatomic_vqe(
                 entanglement=entanglement,
             )
         else:
-            qubit_mapper = JordanWignerMapper()
+            if mapper == "JordanWigner":
+                qubit_mapper = JordanWignerMapper()
+            elif mapper == "BravyiKitaev":
+                qubit_mapper = BravyiKitaevMapper()
+            elif mapper == "Parity":
+                qubit_mapper = ParityMapper(num_particles=problem_used.num_particles)
+            else:
+                raise ValueError(f"Unsupported mapper: {mapper}")
+
             ansatz = build_ansatz(
                 ansatz_method,
                 problem=problem_used,
