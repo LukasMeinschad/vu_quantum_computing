@@ -18,7 +18,10 @@ from modules.ansatz import build_uccsd_ansatz
 from modules.vqe import run_vqe_single_point
 
 from modules.bond_scan import bond_scan_diatomic_vqe
-from modules.joint_optimization import joint_optimize_diatomic_bond_length, joint_optimize_water_geometry
+from modules.joint_optimization import (
+    joint_optimize_diatomic_bond_length,
+    joint_optimize_water_geometry,
+)
 
 
 if __name__ == "__main__":
@@ -31,13 +34,17 @@ if __name__ == "__main__":
     # Ideal (exact) vs incrementally noisier Aer simulation for H2 (single-point)
     # -------------------------------------------------------------------------
 
-    def make_noisy_estimator(*, scale: float, p1_base: float = 0.001, p2_base: float = 0.01) -> EstimatorV2:
+    def make_noisy_estimator(
+        *, scale: float, p1_base: float = 0.001, p2_base: float = 0.01
+    ) -> EstimatorV2:
         """Create an EstimatorV2 configured with a scaled depolarizing noise model."""
         noise_model = NoiseModel()
         p1 = float(scale) * p1_base
         p2 = float(scale) * p2_base
 
-        noise_model.add_all_qubit_quantum_error(depolarizing_error(p1, 1), ["x", "sx", "rx", "ry", "rz"])
+        noise_model.add_all_qubit_quantum_error(
+            depolarizing_error(p1, 1), ["x", "sx", "rx", "ry", "rz"]
+        )
         noise_model.add_all_qubit_quantum_error(depolarizing_error(p2, 2), ["cx", "cz"])
 
         return EstimatorV2(
@@ -64,7 +71,9 @@ if __name__ == "__main__":
         sanitize_active_space=True,
     )
     h2_qubit_hamiltonian = map_to_qubit_hamiltonian(h2_problem, mapper="JordanWigner")
-    h2_ansatz = build_uccsd_ansatz(h2_problem, qubit_mapper=jw_mapper, initial_state=None, reps=1)
+    h2_ansatz = build_uccsd_ansatz(
+        h2_problem, qubit_mapper=jw_mapper, initial_state=None, reps=1
+    )
 
     # Fair comparison: same initial parameters for all runs
     rng = np.random.default_rng(42)
@@ -148,7 +157,6 @@ if __name__ == "__main__":
     plt.savefig("images/h2_uccsd_final_energy_vs_noise_scale.png", dpi=200)
     plt.close()
 
-
     """  
     This section is for running the desired bond scans for the diatomic molecules
     """
@@ -161,34 +169,34 @@ if __name__ == "__main__":
         (("F", "H"), (8, 6)),
     ]
 
-#    distances = np.linspace(0.5, 1.8, 30)
-#
-#    for (atom1, atom2), active_space in scans:
-#        print(f"\n=== Bond scan for {atom1}{atom2} ===")
-#        bond_scan_diatomic_vqe(
-#            atom1=atom1,
-#            atom2=atom2,
-#            distances=distances,
-#            basis="sto3g",
-#            charge=0,
-#            spin=0,
-#            unit=DistanceUnit.ANGSTROM,
-#            freeze_core=False,
-#            active_space=active_space,
-#            mapper="JordanWigner",
-#            ansatz_method="EfficientSU2",
-#            entanglement="linear",
-#            reps=2,
-#            optimizer_builder=lambda: COBYLA(maxiter=150),
-#            maxiter=150,
-#            backend=backend,
-#            optimization_level=0,
-#            seed=42,
-#            warm_start=True,
-#            plot=True,
-#            images_dir=Path("images"),
-#        )
-#
+    #    distances = np.linspace(0.5, 1.8, 30)
+    #
+    #    for (atom1, atom2), active_space in scans:
+    #        print(f"\n=== Bond scan for {atom1}{atom2} ===")
+    #        bond_scan_diatomic_vqe(
+    #            atom1=atom1,
+    #            atom2=atom2,
+    #            distances=distances,
+    #            basis="sto3g",
+    #            charge=0,
+    #            spin=0,
+    #            unit=DistanceUnit.ANGSTROM,
+    #            freeze_core=False,
+    #            active_space=active_space,
+    #            mapper="JordanWigner",
+    #            ansatz_method="EfficientSU2",
+    #            entanglement="linear",
+    #            reps=2,
+    #            optimizer_builder=lambda: COBYLA(maxiter=150),
+    #            maxiter=150,
+    #            backend=backend,
+    #            optimization_level=0,
+    #            seed=42,
+    #            warm_start=True,
+    #            plot=True,
+    #            images_dir=Path("images"),
+    #        )
+    #
     """  
     This section is for running joint optimizations of
     (diatomic bond distance + ansatz parameters).
@@ -201,37 +209,34 @@ if __name__ == "__main__":
         (("F", "H"), (8, 6), 0.92, (0.6, 2.0)),
     ]
 
-#    for (atom1, atom2), active_space, d0, window in joint_jobs:
-#        print(f"\n=== Joint optimization for {atom1}{atom2} ===")
-#        res = joint_optimize_diatomic_bond_length(
-#            atom1=atom1,
-#            atom2=atom2,
-#            initial_distance=d0,
-#            distance_window=window,
-#            penalty_strength=100.0,
-#            axis="x",
-#            symmetric_geometry=True,
-#            basis="sto3g",
-#            charge=0,
-#            spin=0,
-#            unit=DistanceUnit.ANGSTROM,
-#            freeze_core=False,
-#            active_space=active_space,
-#            mapper="JordanWigner",
-#            ansatz_kind="EfficientSU2",
-#            entanglement="linear",
-#            reps=2,
-#            optimizer=COBYLA(maxiter=200),
-#            maxiter=200,
-#            backend=backend,
-#            optimization_level=0,
-#            seed=42,
-#            initial_theta=None,
-#            verbose=True,
-#        )
-#
-#        print(f"Optimized: d = {res.optimal_distance:.6f} Å, E = {res.optimal_energy:.10f} Ha")
-
+    #    for (atom1, atom2), active_space, d0, window in joint_jobs:
+    #        print(f"\n=== Joint optimization for {atom1}{atom2} ===")
+    #        res = joint_optimize_diatomic_bond_length(
+    #            atom1=atom1,
+    #            atom2=atom2,
+    #            initial_distance=d0,
+    #            distance_window=window,
+    #            penalty_strength=100.0,
+    #            symmetric_geometry=True,
+    #            basis="sto3g",
+    #            charge=0,
+    #            spin=0,
+    #            freeze_core=False,
+    #            active_space=active_space,
+    #            mapper="JordanWigner",
+    #            ansatz_type="EfficientSU2",
+    #            entanglement="linear",
+    #            reps=2,
+    #            optimizer=COBYLA(maxiter=200),
+    #            maxiter=200,
+    #            backend=backend,
+    #            optimization_level=0,
+    #            seed=42,
+    #            initial_theta=None,
+    #            verbose=True,
+    #        )
+    #
+    #        print(f"Optimized: d = {res.optimal_distance:.6f} Å, E = {res.optimal_energy:.10f} Ha")
 
     """  
     This section compares H2 joint geometry optimization convergence
@@ -250,16 +255,14 @@ if __name__ == "__main__":
         initial_distance=h2_d0,
         distance_window=h2_window,
         penalty_strength=100.0,
-        axis="z",
         symmetric_geometry=True,
         basis="sto3g",
         charge=0,
         spin=0,
-        unit=DistanceUnit.ANGSTROM,
         freeze_core=False,
         active_space=(2, 2),
         mapper="JordanWigner",
-        ansatz_kind="EfficientSU2",
+        ansatz_type="EfficientSU2",
         entanglement="linear",
         reps=2,
         optimizer=COBYLA(maxiter=80),
@@ -278,16 +281,14 @@ if __name__ == "__main__":
         initial_distance=h2_d0,
         distance_window=h2_window,
         penalty_strength=100.0,
-        axis="z",
         symmetric_geometry=True,
         basis="sto3g",
         charge=0,
         spin=0,
-        unit=DistanceUnit.ANGSTROM,
         freeze_core=False,
         active_space=(2, 2),
         mapper="JordanWigner",
-        ansatz_kind="UCCSD",
+        ansatz_type="UCCSD",
         reps=1,
         optimizer=COBYLA(maxiter=80),
         maxiter=80,
@@ -309,7 +310,9 @@ if __name__ == "__main__":
 
     # Plot energy + distance histories
     fig, axs = plt.subplots(2, 1, figsize=(7, 7), sharex=True)
-    axs[0].plot(h2_eff.history_cost_energies, label="EfficientSU2 (cost)", linewidth=1.8)
+    axs[0].plot(
+        h2_eff.history_cost_energies, label="EfficientSU2 (cost)", linewidth=1.8
+    )
     axs[0].plot(h2_uccsd.history_cost_energies, label="UCCSD (cost)", linewidth=1.8)
     axs[0].set_ylabel("Energy (Ha)")
     axs[0].set_title("H2 joint optimization convergence")
@@ -364,23 +367,3 @@ if __name__ == "__main__":
         f"r1={water_uccsd.optimal_r1:.6f} Å, r2={water_uccsd.optimal_r2:.6f} Å, "
         f"angle={water_uccsd.optimal_angle_deg:.3f} deg, E={water_uccsd.optimal_energy:.10f} Ha"
     )
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

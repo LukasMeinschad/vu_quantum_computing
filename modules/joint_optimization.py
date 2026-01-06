@@ -30,7 +30,11 @@ import numpy as np
 from qiskit_nature.units import DistanceUnit
 
 from modules.ansatz import AnsatzKind, build_ansatz
-from modules.molecule import MoleculeSpec, build_fermionic_hamiltonian, build_molecule_problem
+from modules.molecule import (
+    MoleculeSpec,
+    build_fermionic_hamiltonian,
+    build_molecule_problem,
+)
 from modules.vqe import interpret_expectation_value
 
 
@@ -143,27 +147,25 @@ def joint_optimize_diatomic_bond_length(
     atom1: str,
     atom2: str,
     initial_distance: float,
-    distance_window: tuple[float, float] | None = None,
-    penalty_strength: float = 100.0,
-    axis: Axis = "x",
-    symmetric_geometry: bool = True,
-    basis: str = "sto3g",
-    charge: int = 0,
-    spin: int = 0,
-    unit: DistanceUnit = DistanceUnit.ANGSTROM,
-    freeze_core: bool = False,
-    active_space: tuple[int, int] | None = None,  # (num_electrons, num_spatial_orbitals)
-    mapper: str = "JordanWigner",
-    ansatz_kind: AnsatzKind = "EfficientSU2",
-    entanglement: str = "linear",
-    reps: int = 1,
-    optimizer: Optional[Any] = None,
-    maxiter: int = 200,
-    backend: Optional[Any] = None,
-    optimization_level: int = 0,
-    seed: Optional[int] = 42,
-    initial_theta: Optional[np.ndarray] = None,
-    verbose: bool = True,
+    distance_window: tuple[float, float] | None,
+    penalty_strength: float,
+    symmetric_geometry: bool,
+    basis: str,
+    charge: int,
+    spin: int,
+    freeze_core: bool,
+    active_space: tuple[int, int] | None,  # (num_electrons, num_spatial_orbitals)
+    mapper: str,
+    ansatz_type: AnsatzKind,
+    entanglement: str,
+    reps: int,
+    optimizer: Optional[Any],
+    maxiter: int,
+    backend: Optional[Any],
+    optimization_level: int,
+    seed: Optional[int],
+    initial_theta: Optional[np.ndarray],
+    verbose: bool,
 ) -> JointOptimizationResult:
     """Jointly optimize diatomic bond distance and ansatz parameters.
 
@@ -183,6 +185,10 @@ def joint_optimize_diatomic_bond_length(
     from qiskit_aer.primitives import EstimatorV2
     from qiskit_algorithms.optimizers import COBYLA
     from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+
+    # Fixed parameters
+    axis: Axis = "x"
+    unit = DistanceUnit.ANGSTROM
 
     if backend is None:
         backend = AerSimulator()
@@ -217,22 +223,24 @@ def joint_optimize_diatomic_bond_length(
     ref_qubit_op = qubit_mapper.map(build_fermionic_hamiltonian(ref_problem))
 
     # Build ansatz at reference point (fixed circuit structure).
-    if ansatz_kind in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
+    if ansatz_type in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
         ansatz = build_ansatz(
-            ansatz_kind,
+            ansatz_type,
             num_qubits=ref_qubit_op.num_qubits,
             entanglement=entanglement,
             reps=reps,
         )
     else:
         ansatz = build_ansatz(
-            ansatz_kind,
+            ansatz_type,
             problem=ref_problem,
             qubit_mapper=qubit_mapper,
             reps=reps,
         )
 
-    pm = generate_preset_pass_manager(backend=backend, optimization_level=optimization_level)
+    pm = generate_preset_pass_manager(
+        backend=backend, optimization_level=optimization_level
+    )
     isa_ansatz = pm.run(ansatz)
 
     estimator = EstimatorV2()
@@ -245,7 +253,9 @@ def joint_optimize_diatomic_bond_length(
     else:
         initial_theta = np.asarray(initial_theta, dtype=float)
         if initial_theta.shape != (num_theta,):
-            raise ValueError(f"initial_theta must have shape {(num_theta,)}, got {initial_theta.shape}")
+            raise ValueError(
+                f"initial_theta must have shape {(num_theta,)}, got {initial_theta.shape}"
+            )
 
     x0 = np.concatenate([initial_theta, [float(initial_distance)]])
 
@@ -384,7 +394,9 @@ def joint_optimize_water_geometry(
     spin: int = 0,
     unit: DistanceUnit = DistanceUnit.ANGSTROM,
     freeze_core: bool = False,
-    active_space: tuple[int, int] | None = None,  # (num_electrons, num_spatial_orbitals)
+    active_space: (
+        tuple[int, int] | None
+    ) = None,  # (num_electrons, num_spatial_orbitals)
     mapper: str = "JordanWigner",
     ansatz_kind: AnsatzKind = "EfficientSU2",
     entanglement: str = "linear",
@@ -427,7 +439,9 @@ def joint_optimize_water_geometry(
         optimizer = COBYLA(maxiter=maxiter)
 
     # --- Reference problem (fixes qubit count and ansatz parameter count) ---
-    ref_atom = _water_atom_string(r1=initial_r1, r2=initial_r2, angle_deg=initial_angle_deg)
+    ref_atom = _water_atom_string(
+        r1=initial_r1, r2=initial_r2, angle_deg=initial_angle_deg
+    )
     ref_spec = MoleculeSpec(
         atom=ref_atom,
         basis=basis,
@@ -460,7 +474,9 @@ def joint_optimize_water_geometry(
             reps=reps,
         )
 
-    pm = generate_preset_pass_manager(backend=backend, optimization_level=optimization_level)
+    pm = generate_preset_pass_manager(
+        backend=backend, optimization_level=optimization_level
+    )
     isa_ansatz = pm.run(ansatz)
     estimator = EstimatorV2()
 
@@ -471,7 +487,9 @@ def joint_optimize_water_geometry(
     else:
         initial_theta = np.asarray(initial_theta, dtype=float)
         if initial_theta.shape != (num_theta,):
-            raise ValueError(f"initial_theta must have shape {(num_theta,)}, got {initial_theta.shape}")
+            raise ValueError(
+                f"initial_theta must have shape {(num_theta,)}, got {initial_theta.shape}"
+            )
 
     x0 = np.concatenate(
         [
@@ -502,7 +520,9 @@ def joint_optimize_water_geometry(
         # keep PySCF happy and avoid degenerate/invalid angles
         return (r1 > 0.0) and (r2 > 0.0) and (0.0 < angle_deg < 180.0)
 
-    def _evaluate_energy(theta: np.ndarray, r1: float, r2: float, angle_deg: float) -> float:
+    def _evaluate_energy(
+        theta: np.ndarray, r1: float, r2: float, angle_deg: float
+    ) -> float:
         atom_str = _water_atom_string(r1=r1, r2=r2, angle_deg=angle_deg)
         spec = MoleculeSpec(
             atom=atom_str,
@@ -563,7 +583,11 @@ def joint_optimize_water_geometry(
                 f"Eval {k:03d}: r1={r1:.6f}, r2={r2:.6f} {unit.name}, "
                 f"angle={angle_deg:.3f} deg, E={raw_e:.10f} Ha"
             )
-            if (r1_window is not None) or (r2_window is not None) or (angle_window_deg is not None):
+            if (
+                (r1_window is not None)
+                or (r2_window is not None)
+                or (angle_window_deg is not None)
+            ):
                 msg += f", cost={cost_e:.10f}"
             print(msg)
 
@@ -571,14 +595,21 @@ def joint_optimize_water_geometry(
 
     # Edge case: fixed-state circuits -> theta is empty; still optimize geometry.
     if num_theta == 0:
-        x0_geom = np.array([float(initial_r1), float(initial_r2), float(initial_angle_deg)], dtype=float)
+        x0_geom = np.array(
+            [float(initial_r1), float(initial_r2), float(initial_angle_deg)],
+            dtype=float,
+        )
 
         def geom_cost(g: np.ndarray) -> float:
-            return joint_cost(np.concatenate([np.array([], dtype=float), np.asarray(g, dtype=float)]))
+            return joint_cost(
+                np.concatenate([np.array([], dtype=float), np.asarray(g, dtype=float)])
+            )
 
         opt_result = optimizer.minimize(fun=geom_cost, x0=x0_geom)
         r1_opt, r2_opt, ang_opt = map(float, opt_result.x)
-        e_opt_raw = float(_evaluate_energy(np.array([], dtype=float), r1_opt, r2_opt, ang_opt))
+        e_opt_raw = float(
+            _evaluate_energy(np.array([], dtype=float), r1_opt, r2_opt, ang_opt)
+        )
         return WaterJointOptimizationResult(
             result=opt_result,
             optimal_r1=r1_opt,
