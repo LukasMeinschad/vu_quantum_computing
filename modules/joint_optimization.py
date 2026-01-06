@@ -21,13 +21,20 @@ Notes
 
 from __future__ import annotations
 
+import numpy as np
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable, Literal, Optional
-
-import numpy as np
-
+from qiskit_aer import AerSimulator
+from qiskit_aer.primitives import EstimatorV2
+from qiskit_algorithms.optimizers import COBYLA
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qiskit_nature.units import DistanceUnit
+from qiskit_nature.second_q.mappers import (
+    BravyiKitaevMapper,
+    JordanWignerMapper,
+    ParityMapper,
+)
 
 from modules.ansatz import AnsatzKind, build_ansatz
 from modules.molecule import (
@@ -36,9 +43,6 @@ from modules.molecule import (
     build_molecule_problem,
 )
 from modules.vqe import interpret_expectation_value
-
-
-Axis = Literal["x", "y", "z"]
 
 
 @dataclass(frozen=True)
@@ -71,19 +75,37 @@ class WaterJointOptimizationResult:
     history_cost_energies: list[float]
 
 
-def _make_qubit_mapper(*, mapper: str, problem: Any):
-    from qiskit_nature.second_q.mappers import (
-        BravyiKitaevMapper,
-        JordanWignerMapper,
-        ParityMapper,
-    )
+def make_qubit_mapper(*, mapper: str, problem: Any):
+    """Create a qubit mapper based on the specified mapping scheme.
 
+    Parameters
+    ----------
+    mapper : str
+        The mapping scheme to use. Must be one of:
+        - 'JordanWigner': Standard Jordan-Wigner mapping
+        - 'BravyiKitaev': Bravyi-Kitaev mapping (more efficient gate depth)
+        - 'Parity': Parity mapping (reduces qubit count)
+    problem : Any
+        The electronic structure problem. Required to extract num_particles
+        for the Parity mapper.
+
+    Returns
+    -------
+    Mapper
+        An instance of the requested qubit mapper.
+
+    Raises
+    ------
+    ValueError
+        If an unsupported mapper name is provided.
+    """
     if mapper == "JordanWigner":
         return JordanWignerMapper()
     if mapper == "BravyiKitaev":
         return BravyiKitaevMapper()
     if mapper == "Parity":
         return ParityMapper(num_particles=problem.num_particles)
+
     raise ValueError(f"Unsupported mapper: {mapper}")
 
 
@@ -95,14 +117,31 @@ def _water_atom_string(
 ) -> str:
     """Create a PySCF atom string for H2O with O at origin.
 
+    Builds a water molecule geometry string with oxygen at the origin and
+    hydrogen atoms positioned using the specified bond lengths and angle.
+
     Geometry convention
     -------------------
     - O at (0, 0, 0)
-    - H1 at (0, 0, r1)
+    - H1 at (0, 0, r1) along the z-axis
     - H2 in the xz-plane with angle(H1-O-H2)=angle_deg:
         H2 = (r2*sin(angle), 0, r2*cos(angle))
 
     This guarantees the H–O–H angle equals `angle_deg`.
+
+    Parameters
+    ----------
+    r1 : float
+        O-H bond length for the first hydrogen (in Angstrom).
+    r2 : float
+        O-H bond length for the second hydrogen (in Angstrom).
+    angle_deg : float
+        H-O-H bond angle in degrees.
+
+    Returns
+    -------
+    str
+        PySCF-formatted atom string, e.g., "O 0.0 0.0 0.0; H 0.0 0.0 r1; H x z z2"
     """
 
     r1 = float(r1)
@@ -140,24 +179,87 @@ def joint_optimize_diatomic_bond_length(
     initial_theta: Optional[np.ndarray],
     verbose: bool,
 ) -> JointOptimizationResult:
-    """Jointly optimize diatomic bond distance and ansatz parameters.
+    """Jointly optimize diatomic bond distance and variational ansatz parameters.
+
+    Performs simultaneous optimization of the molecular geometry (bond distance)
+    and the variational ansatz parameters to minimize the electronic ground-state
+    energy. The ansatz circuit structure is fixed at the reference distance, and
+    only the observable (Hamiltonian) changes with geometry.
+
+    The optimization uses COBYLA (or a user-provided optimizer) to minimize:
+        E(theta, d) + penalty(d)
+    where penalty enforces soft constraints on the bond distance.
 
     Parameters
     ----------
-    distance_window:
-        Optional (d_min, d_max). If provided, a soft quadratic penalty is added
-        outside this interval.
+    atom1 : str
+        Element symbol for the first atom (e.g., 'H', 'Li').
+    atom2 : str
+        Element symbol for the second atom.
+    initial_distance : float
+        Initial bond distance in Angstrom.
+    distance_window : tuple[float, float] | None
+        Optional (d_min, d_max) interval. A quadratic penalty is applied
+        outside this window to enforce soft constraints.
+    penalty_strength : float
+        Coefficient for the soft constraint penalty term.
+    basis : str
+        Quantum chemistry basis set (e.g., 'sto3g', '6-31g').
+    charge : int
+        Net charge of the molecule.
+    spin : int
+        Spin multiplicity (2*S, where S is total spin).
+    freeze_core : bool
+        If True, freeze core electrons in the active space.
+    active_space : tuple[int, int] | None
+        (num_electrons, num_spatial_orbitals) for the active space.
+        If None, all electrons and orbitals are included.
+    mapper : str
+        Qubit mapper to use ('JordanWigner', 'BravyiKitaev', or 'Parity').
+    ansatz_type : AnsatzKind
+        Type of ansatz circuit ('EfficientSU2', 'UCCSD', 'HF', etc.).
+    entanglement : str
+        Entanglement pattern for the ansatz ('linear', 'full', 'circular', etc.).
+    reps : int
+        Number of repetitions/blocks in the ansatz circuit.
+    optimizer : Optional[Any]
+        Classical optimizer instance. If None, COBYLA is used.
+    maxiter : int
+        Maximum number of optimization iterations.
+    backend : Optional[Any]
+        Quantum backend for simulation. If None, AerSimulator is used.
+    optimization_level : int
+        Transpilation optimization level (0-3).
+    seed : Optional[int]
+        Random seed for reproducibility.
+    initial_theta : Optional[np.ndarray]
+        Initial ansatz parameters. If None, random initialization is used.
+    verbose : bool
+        If True, print evaluation details during optimization.
 
     Returns
     -------
     JointOptimizationResult
-        Includes optimizer result and full evaluation history.
-    """
+        Contains:
+        - result: Raw optimizer result object
+        - optimal_distance: Best bond distance found (in Angstrom)
+        - optimal_energy: Electronic energy at optimum (in Hartree)
+        - optimal_theta: Best ansatz parameters
+        - history_distances: List of all tested distances
+        - history_raw_energies: List of electronic energies
+        - history_cost_energies: List of cost values (energy + penalty)
 
-    from qiskit_aer import AerSimulator
-    from qiskit_aer.primitives import EstimatorV2
-    from qiskit_algorithms.optimizers import COBYLA
-    from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+    Notes
+    -----
+    - The number of qubits must remain constant across the distance interval.
+    - For diatomics with fixed electron count and basis, this is typically satisfied.
+    - The ansatz circuit is built once at the reference distance and reused.
+
+    Raises
+    ------
+    ValueError
+        If distance_window is invalid or if qubit count changes during optimization.
+    """
 
     if backend is None:
         backend = AerSimulator()
@@ -182,7 +284,7 @@ def joint_optimize_diatomic_bond_length(
         sanitize_active_space=True,
     )
 
-    qubit_mapper = _make_qubit_mapper(mapper=mapper, problem=ref_problem)
+    qubit_mapper = make_qubit_mapper(mapper=mapper, problem=ref_problem)
 
     ref_qubit_op = qubit_mapper.map(build_fermionic_hamiltonian(ref_problem))
 
@@ -366,22 +468,89 @@ def joint_optimize_water_geometry(
     initial_theta: Optional[np.ndarray] = None,
     verbose: bool = True,
 ) -> WaterJointOptimizationResult:
-    """Jointly optimize H2O geometry (r1, r2, angle) and ansatz parameters.
+    """Jointly optimize H2O geometry and variational ansatz parameters.
+
+    Performs simultaneous optimization of the water molecule geometry (two
+    O-H bond lengths and the H-O-H angle) and the variational ansatz parameters.
+    Similar to diatomic optimization, but handles three geometric degrees of freedom.
+
+    The optimization objective is:
+        E(theta, r1, r2, angle) + penalties(r1, r2, angle)
 
     Parameters
     ----------
-    initial_r1, initial_r2:
-        Initial O–H bond lengths in `unit` (typically Angstrom).
-    initial_angle_deg:
-        Initial H–O–H bond angle in degrees.
-    r1_window, r2_window, angle_window_deg:
-        Optional soft constraint windows. Outside the window a quadratic penalty
-        is added to the objective.
+    initial_r1 : float
+        Initial O-H bond length for first hydrogen (in Angstrom).
+    initial_r2 : float
+        Initial O-H bond length for second hydrogen (in Angstrom).
+    initial_angle_deg : float
+        Initial H-O-H bond angle in degrees.
+    r1_window : tuple[float, float] | None
+        Optional (r1_min, r1_max) soft constraint window for first O-H bond.
+    r2_window : tuple[float, float] | None
+        Optional (r2_min, r2_max) soft constraint window for second O-H bond.
+    angle_window_deg : tuple[float, float] | None
+        Optional (angle_min, angle_max) soft constraint window for H-O-H angle.
+    penalty_strength : float
+        Coefficient for soft constraint penalties.
+    basis : str
+        Quantum chemistry basis set (e.g., 'sto3g', '6-31g').
+    charge : int
+        Net charge of the molecule.
+    spin : int
+        Spin multiplicity (2*S).
+    unit : DistanceUnit
+        Distance unit for interpretation (default: ANGSTROM).
+    freeze_core : bool
+        If True, freeze core electrons in active space.
+    active_space : tuple[int, int] | None
+        (num_electrons, num_spatial_orbitals) for active space.
+    mapper : str
+        Qubit mapper ('JordanWigner', 'BravyiKitaev', 'Parity').
+    ansatz_kind : AnsatzKind
+        Ansatz circuit type.
+    entanglement : str
+        Entanglement pattern for ansatz.
+    reps : int
+        Number of ansatz repetitions.
+    optimizer : Optional[Any]
+        Classical optimizer. If None, COBYLA is used.
+    maxiter : int
+        Maximum optimization iterations.
+    backend : Optional[Any]
+        Quantum backend. If None, AerSimulator is used.
+    optimization_level : int
+        Transpilation optimization level (0-3).
+    seed : Optional[int]
+        Random seed for reproducibility.
+    initial_theta : Optional[np.ndarray]
+        Initial ansatz parameters. If None, random initialization.
+    verbose : bool
+        If True, print evaluation details.
 
     Returns
     -------
     WaterJointOptimizationResult
-        Includes optimizer result and full evaluation history.
+        Contains:
+        - result: Raw optimizer result object
+        - optimal_r1, optimal_r2: Best O-H bond lengths (in Angstrom)
+        - optimal_angle_deg: Best H-O-H angle (in degrees)
+        - optimal_energy: Electronic energy at optimum (in Hartree)
+        - optimal_theta: Best ansatz parameters
+        - history_r1, history_r2, history_angle_deg: Geometry evolution
+        - history_raw_energies: Electronic energies evaluated
+        - history_cost_energies: Cost values (energy + penalties)
+
+    Notes
+    -----
+    - Geometry validity is checked: r1, r2 > 0 and 0 < angle < 180°.
+    - Invalid geometries return infinity energy to discourage exploration.
+    - Three geometric parameters increase optimization complexity significantly.
+
+    Raises
+    ------
+    ValueError
+        If constraint windows are invalid or qubit count changes.
     """
 
     from qiskit_aer import AerSimulator
@@ -412,7 +581,7 @@ def joint_optimize_water_geometry(
         sanitize_active_space=True,
     )
 
-    qubit_mapper = _make_qubit_mapper(mapper=mapper, problem=ref_problem)
+    qubit_mapper = make_qubit_mapper(mapper=mapper, problem=ref_problem)
     ref_qubit_op = qubit_mapper.map(build_fermionic_hamiltonian(ref_problem))
 
     if ansatz_kind in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
