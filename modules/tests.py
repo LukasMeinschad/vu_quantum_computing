@@ -313,7 +313,7 @@ def compare_entanglement_and_reps_h2(
 		basis=basis,
 		charge=charge,
 		spin=spin,
-		unit=DistanceUnit.ANGSTROM,
+	)
 	
 	problem = build_molecule_problem(
 		spec,
