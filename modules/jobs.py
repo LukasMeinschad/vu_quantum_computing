@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,7 @@ from modules.vqe import run_vqe_single_point
 
 
 IMAGES_DIR = Path("images")
+DATA_DIR = Path("data")
 
 
 def _make_noisy_estimator(
@@ -154,6 +156,21 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
     plt.savefig(IMAGES_DIR / "h2_uccsd_final_energy_vs_noise_scale.png", dpi=200)
     plt.close()
 
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "e_ideal": float(e_ideal),
+        "noise_scales": [float(s) for s in noise_scales],
+        "noisy_finals": [float(e) for e in noisy_finals],
+        "ideal_convergence": [float(e) for e in run_ideal.energies],
+        "noisy_convergence": {
+            str(float(scale)): [float(e) for e in noisy_runs[scale].energies]
+            for scale in noise_scales
+        },
+    }
+    with open(DATA_DIR / "h2_noise_benchmark.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
     return {
         "problem": h2_problem,
         "qubit_hamiltonian": h2_qubit_hamiltonian,
@@ -256,6 +273,25 @@ def run_h2_joint_comparison() -> dict[str, Any]:
     plt.savefig(IMAGES_DIR / "h2_jointopt_convergence_effsu2_vs_uccsd.png", dpi=200)
     plt.close(fig)
 
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "effsu2": {
+            "optimal_distance": float(h2_eff.optimal_distance),
+            "optimal_energy": float(h2_eff.optimal_energy),
+            "history_cost_energies": [float(e) for e in h2_eff.history_cost_energies],
+            "history_distances": [float(d) for d in h2_eff.history_distances],
+        },
+        "uccsd": {
+            "optimal_distance": float(h2_uccsd.optimal_distance),
+            "optimal_energy": float(h2_uccsd.optimal_energy),
+            "history_cost_energies": [float(e) for e in h2_uccsd.history_cost_energies],
+            "history_distances": [float(d) for d in h2_uccsd.history_distances],
+        },
+    }
+    with open(DATA_DIR / "h2_joint_comparison.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
     return {
         "eff": h2_eff,
         "uccsd": h2_uccsd,
@@ -305,6 +341,17 @@ def run_diatomic_bond_scans() -> dict[str, Any]:
         )
         results[f"{atom1}{atom2}"] = res
 
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {}
+    for key, res in results.items():
+        data_to_save[key] = {
+            "distances": [float(d) for d in res["distances"]],
+            "energies": [float(e) for e in res["energies"]],
+        }
+    with open(DATA_DIR / "diatomic_bond_scans.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+
     return results
 
 
@@ -352,5 +399,20 @@ def run_h2o_joint_optimization() -> Any:
         f"r1={water_uccsd.optimal_r1:.6f} Å, r2={water_uccsd.optimal_r2:.6f} Å, "
         f"angle={water_uccsd.optimal_angle_deg:.3f} deg, E={water_uccsd.optimal_energy:.10f} Ha"
     )
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "optimal_r1": float(water_uccsd.optimal_r1),
+        "optimal_r2": float(water_uccsd.optimal_r2),
+        "optimal_angle_deg": float(water_uccsd.optimal_angle_deg),
+        "optimal_energy": float(water_uccsd.optimal_energy),
+        "history_r1": [float(r) for r in water_uccsd.history_r1],
+        "history_r2": [float(r) for r in water_uccsd.history_r2],
+        "history_angle_deg": [float(a) for a in water_uccsd.history_angle_deg],
+        "history_cost_energies": [float(e) for e in water_uccsd.history_cost_energies],
+    }
+    with open(DATA_DIR / "h2o_joint_optimization.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
 
     return water_uccsd
