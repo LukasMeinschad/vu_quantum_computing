@@ -27,9 +27,7 @@ from qiskit_nature.second_q.circuit.library import UCCSD, HartreeFock
 from qiskit_nature.second_q.mappers import QubitMapper
 
 
-HardwareAnsatzKind = Literal["EfficientSU2", "TwoLocal", "RealAmplitudes"]
 ChemistryAnsatzKind = Literal["HartreeFock", "UCCSD"]
-AnsatzKind = Literal["EfficientSU2", "TwoLocal", "RealAmplitudes", "HartreeFock", "UCCSD"]
 
 
 def _ctor_accepts_kwarg(cls, kw: str) -> bool:
@@ -42,9 +40,9 @@ def _ctor_accepts_kwarg(cls, kw: str) -> bool:
 
 def generate_ansatz(
     num_qubits: int,
+    method: str,
+    reps: int,
     entanglement: str = "linear",
-    reps: int = 1,
-    method: HardwareAnsatzKind = "EfficientSU2",
     *,
     insert_barriers: bool = True,
     # TwoLocal-specific knobs (optional)
@@ -126,7 +124,9 @@ def build_uccsd_ansatz(
       This function detects that safely.
     """
     if initial_state is None:
-        initial_state = build_hartree_fock_initial_state(problem, qubit_mapper=qubit_mapper)
+        initial_state = build_hartree_fock_initial_state(
+            problem, qubit_mapper=qubit_mapper
+        )
 
     kwargs = dict(
         num_spatial_orbitals=problem.num_spatial_orbitals,
@@ -142,13 +142,11 @@ def build_uccsd_ansatz(
 
 
 def build_ansatz(
-    kind: AnsatzKind,
+    ansatz_type,
     *,
-    # hardware-efficient inputs
     num_qubits: int | None = None,
     entanglement: str = "linear",
     reps: int = 1,
-    # chemistry inputs
     problem=None,
     qubit_mapper: QubitMapper | None = None,
     initial_state: Optional[QuantumCircuit] = None,
@@ -165,24 +163,24 @@ def build_ansatz(
         mapper = JordanWignerMapper()
         build_ansatz("UCCSD", problem=problem, qubit_mapper=mapper)
     """
-    if kind in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
+    if ansatz_type in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
         if num_qubits is None:
             raise ValueError("num_qubits is required for hardware-efficient ansatz.")
         return generate_ansatz(
             num_qubits=num_qubits,
-            entanglement=entanglement,
+            method=ansatz_type,  # type: ignore[arg-type]
             reps=reps,
-            method=kind,  # type: ignore[arg-type]
+            entanglement=entanglement,
         )
 
-    if kind == "HartreeFock":
+    if ansatz_type == "HartreeFock":
         if problem is None or qubit_mapper is None:
-            raise ValueError("problem and qubit_mapper are required for HartreeFock.")
+            raise ValueError("Problem and qubit_mapper are required for HartreeFock.")
         return build_hartree_fock_initial_state(problem, qubit_mapper=qubit_mapper)
 
-    if kind == "UCCSD":
+    if ansatz_type == "UCCSD":
         if problem is None or qubit_mapper is None:
-            raise ValueError("problem and qubit_mapper are required for UCCSD.")
+            raise ValueError("Problem and qubit_mapper are required for UCCSD.")
         return build_uccsd_ansatz(
             problem,
             qubit_mapper=qubit_mapper,
@@ -190,4 +188,4 @@ def build_ansatz(
             reps=reps,
         )
 
-    raise ValueError(f"Unsupported ansatz kind: {kind}")
+    raise ValueError(f"Unsupported ansatz kind: {ansatz_type}")

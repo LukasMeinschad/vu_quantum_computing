@@ -146,10 +146,10 @@ def bond_scan_diatomic_vqe(
         qubit_hamiltonian = map_to_qubit_hamiltonian(problem_used, mapper=mapper)
 
         ansatz = generate_ansatz(
-            qubit_hamiltonian.num_qubits,
-            entanglement=entanglement,
-            reps=reps,
+            num_qubits=qubit_hamiltonian.num_qubits,
             method=ansatz_method,
+            reps=reps,
+            entanglement=entanglement,
         )
 
         init = None

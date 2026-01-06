@@ -352,7 +352,7 @@ if __name__ == "__main__":
 
     water_uccsd = joint_optimize_water_geometry(
         **water_kwargs,
-        ansatz_kind="UCCSD",
+        ansatz_type="UCCSD",
         reps=1,
         optimizer=COBYLA(maxiter=120),
         maxiter=120,

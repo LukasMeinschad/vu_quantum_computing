@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Optional
 from qiskit_aer import AerSimulator
 from qiskit_aer.primitives import EstimatorV2
 from qiskit_algorithms.optimizers import COBYLA
@@ -109,7 +109,7 @@ def make_qubit_mapper(*, mapper: str, problem: Any):
     raise ValueError(f"Unsupported mapper: {mapper}")
 
 
-def _water_atom_string(
+def water_atom_string(
     *,
     r1: float,
     r2: float,
@@ -285,8 +285,7 @@ def joint_optimize_diatomic_bond_length(
     )
 
     qubit_mapper = make_qubit_mapper(mapper=mapper, problem=ref_problem)
-
-    ref_qubit_op = qubit_mapper.map(build_fermionic_hamiltonian(ref_problem))
+    ref_qubit_op = qubit_mapper.map(ref_problem.second_q_ops()[0])
 
     # Build ansatz at reference point (fixed circuit structure).
     if ansatz_type in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
@@ -457,7 +456,7 @@ def joint_optimize_water_geometry(
         tuple[int, int] | None
     ) = None,  # (num_electrons, num_spatial_orbitals)
     mapper: str = "JordanWigner",
-    ansatz_kind: AnsatzKind = "EfficientSU2",
+    ansatz_type: AnsatzKind = "EfficientSU2",
     entanglement: str = "linear",
     reps: int = 1,
     optimizer: Optional[Any] = None,
@@ -565,7 +564,7 @@ def joint_optimize_water_geometry(
         optimizer = COBYLA(maxiter=maxiter)
 
     # --- Reference problem (fixes qubit count and ansatz parameter count) ---
-    ref_molecule = _water_atom_string(
+    ref_molecule = water_atom_string(
         r1=initial_r1, r2=initial_r2, angle_deg=initial_angle_deg
     )
     ref_spec = MoleculeSpec(
@@ -584,16 +583,16 @@ def joint_optimize_water_geometry(
     qubit_mapper = make_qubit_mapper(mapper=mapper, problem=ref_problem)
     ref_qubit_op = qubit_mapper.map(build_fermionic_hamiltonian(ref_problem))
 
-    if ansatz_kind in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
+    if ansatz_type in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
         ansatz = build_ansatz(
-            ansatz_kind,
+            ansatz_type,
             num_qubits=ref_qubit_op.num_qubits,
             entanglement=entanglement,
             reps=reps,
         )
     else:
         ansatz = build_ansatz(
-            ansatz_kind,
+            ansatz_type,
             problem=ref_problem,
             qubit_mapper=qubit_mapper,
             reps=reps,
@@ -648,7 +647,7 @@ def joint_optimize_water_geometry(
     def _evaluate_energy(
         theta: np.ndarray, r1: float, r2: float, angle_deg: float
     ) -> float:
-        atom_str = _water_atom_string(r1=r1, r2=r2, angle_deg=angle_deg)
+        atom_str = water_atom_string(r1=r1, r2=r2, angle_deg=angle_deg)
         spec = MoleculeSpec(
             atom=atom_str,
             basis=basis,
