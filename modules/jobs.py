@@ -478,8 +478,6 @@ def run_h2_bond_scan() -> dict[str, Any]:
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
-        axis="x",
-        symmetric_geometry=True,
     )
 
     # Save data to file
@@ -524,8 +522,6 @@ def run_lih_bond_scan() -> dict[str, Any]:
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
-        axis="x",
-        symmetric_geometry=True,
     )
 
     # Save data to file
@@ -570,8 +566,6 @@ def run_hf_bond_scan() -> dict[str, Any]:
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
-        axis="x",
-        symmetric_geometry=True,
     )
 
     # Save data to file

@@ -104,8 +104,6 @@ def bond_scan_diatomic_vqe(
     warm_start: bool,
     plot: bool,
     images_dir: str | Path,
-    axis: str,
-    symmetric_geometry: bool,
 ):
     """Run a VQE bond scan for a diatomic molecule.
 
@@ -133,13 +131,7 @@ def bond_scan_diatomic_vqe(
     prev_num_params = None
 
     for i, d in enumerate(distances):
-        atom_str = diatomic_atom_string(
-            atom1,
-            atom2,
-            float(d),
-            axis=axis,
-            symmetric=symmetric_geometry,
-        )
+        atom_str = f"{atom1} 0.0 0.0 0.0; {atom2} 0.0 0.0 {float(d)}"
 
         spec = MoleculeSpec(
             atom=atom_str,
