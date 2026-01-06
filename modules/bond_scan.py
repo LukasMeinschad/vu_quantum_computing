@@ -29,13 +29,13 @@ from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
 from modules.vqe import run_vqe_single_point
 
 
-def _ensure_dir(path: str | Path) -> Path:
+def ensure_dir(path: str | Path) -> Path:
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
-def _diatomic_atom_string(
+def diatomic_atom_string(
     atom1: str,
     atom2: str,
     distance: float,
@@ -106,7 +106,7 @@ def bond_scan_diatomic_vqe(
         distances, energies, convergence, optimal_params
     """
 
-    images_dir = _ensure_dir(images_dir)
+    images_dir = ensure_dir(images_dir)
     if backend is None:
         backend = AerSimulator()
     if optimizer_builder is None:
@@ -122,7 +122,7 @@ def bond_scan_diatomic_vqe(
     prev_num_params = None
 
     for i, d in enumerate(distances):
-        atom_str = _diatomic_atom_string(
+        atom_str = diatomic_atom_string(
             atom1,
             atom2,
             float(d),

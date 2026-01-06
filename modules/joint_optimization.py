@@ -36,7 +36,7 @@ from qiskit_nature.second_q.mappers import (
     ParityMapper,
 )
 
-from modules.ansatz import AnsatzKind, build_ansatz
+from modules.ansatz import build_ansatz
 from modules.molecule import (
     MoleculeSpec,
     build_fermionic_hamiltonian,
@@ -168,7 +168,7 @@ def joint_optimize_diatomic_bond_length(
     freeze_core: bool,
     active_space: tuple[int, int] | None,  # (num_electrons, num_spatial_orbitals)
     mapper: str,
-    ansatz_type: AnsatzKind,
+    ansatz_type: str,
     entanglement: str,
     reps: int,
     optimizer: Optional[Any],
@@ -216,7 +216,7 @@ def joint_optimize_diatomic_bond_length(
         If None, all electrons and orbitals are included.
     mapper : str
         Qubit mapper to use ('JordanWigner', 'BravyiKitaev', or 'Parity').
-    ansatz_type : AnsatzKind
+    ansatz_type : str
         Type of ansatz circuit ('EfficientSU2', 'UCCSD', 'HF', etc.).
     entanglement : str
         Entanglement pattern for the ansatz ('linear', 'full', 'circular', etc.).
@@ -456,7 +456,7 @@ def joint_optimize_water_geometry(
         tuple[int, int] | None
     ) = None,  # (num_electrons, num_spatial_orbitals)
     mapper: str = "JordanWigner",
-    ansatz_type: AnsatzKind = "EfficientSU2",
+    ansatz_type: str = "EfficientSU2",
     entanglement: str = "linear",
     reps: int = 1,
     optimizer: Optional[Any] = None,
@@ -506,7 +506,7 @@ def joint_optimize_water_geometry(
         (num_electrons, num_spatial_orbitals) for active space.
     mapper : str
         Qubit mapper ('JordanWigner', 'BravyiKitaev', 'Parity').
-    ansatz_kind : AnsatzKind
+    ansatz_type : str
         Ansatz circuit type.
     entanglement : str
         Entanglement pattern for ansatz.

@@ -92,7 +92,7 @@ def xyz_file_to_pyscf_atom_string(xyz_path: str | Path) -> str:
     return "; ".join(atoms)
 
 
-def _to_pyscf_atom_string(molecule: str | MoleculeInfo) -> str:
+def to_pyscf_atom_string(molecule: str | MoleculeInfo) -> str:
     """Convert MoleculeInfo -> PySCF atom string; keep str unchanged."""
     if isinstance(molecule, MoleculeInfo):
         parts: list[str] = []
@@ -102,7 +102,7 @@ def _to_pyscf_atom_string(molecule: str | MoleculeInfo) -> str:
     return molecule
 
 
-def _sanitize_active_space(problem, active_space: tuple[int, int]) -> tuple[int, int]:
+def sanitize_active_space(problem, active_space: tuple[int, int]) -> tuple[int, int]:
     """
     Make (num_electrons, num_spatial_orbitals) feasible for ActiveSpaceTransformer.
 
@@ -149,7 +149,7 @@ def build_molecule_problem(
     - FreezeCoreTransformer
     - ActiveSpaceTransformer
     """
-    atom_str = _to_pyscf_atom_string(spec.atom)
+    atom_str = to_pyscf_atom_string(spec.atom)
     driver = PySCFDriver(
         atom=atom_str,
         basis=spec.basis,
@@ -166,7 +166,7 @@ def build_molecule_problem(
     if active_space is not None:
         nelec, norb = active_space
         if sanitize_active_space:
-            nelec, norb = _sanitize_active_space(problem, (nelec, norb))
+            nelec, norb = sanitize_active_space(problem, (nelec, norb))
         problem = ActiveSpaceTransformer(
             num_electrons=nelec, num_spatial_orbitals=norb
         ).transform(problem)

@@ -36,7 +36,7 @@ from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
 from modules.vqe import run_vqe_single_point
 
 
-def _ensure_dir(path: str | Path) -> Path:
+def ensure_dir(path: str | Path) -> Path:
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
     return p
@@ -99,7 +99,7 @@ def compare_ansatz_types_h2(
     Saves a single comparison convergence plot into images/.
     """
 
-    images_dir = _ensure_dir(images_dir)
+    images_dir = ensure_dir(images_dir)
     xyz_path = Path(xyz_path)
 
     atom_str = xyz_file_to_pyscf_atom_string(xyz_path)
@@ -126,10 +126,10 @@ def compare_ansatz_types_h2(
     results: dict[str, Any] = {}
 
     # Hardware-efficient ansatzes
-    for kind in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
+    for type in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
         ansatz = generate_ansatz(
             num_qubits=qubit_hamiltonian.num_qubits,
-            method=kind,
+            method=type,
             reps=reps,
             entanglement=entanglement,
         )
@@ -143,8 +143,8 @@ def compare_ansatz_types_h2(
             seed=seed,
             verbose=verbose,
         )
-        curves[f"{kind} (reps={reps})"] = run.energies
-        results[kind] = run
+        curves[f"{type} (reps={reps})"] = run.energies
+        results[type] = run
 
     # Hartree-Fock (no parameters) – evaluated once
     hf = build_hartree_fock_initial_state(problem, qubit_mapper=jw_mapper)
@@ -220,7 +220,7 @@ def compare_optimizers_h2_uccsd(
 
     from qiskit_algorithms.optimizers import COBYLA, POWELL, SLSQP
 
-    images_dir = _ensure_dir(images_dir)
+    images_dir = ensure_dir(images_dir)
     xyz_path = Path(xyz_path)
 
     atom_str = xyz_file_to_pyscf_atom_string(xyz_path)
@@ -309,7 +309,7 @@ def compare_entanglement_and_reps_h2(
     settings are defined there.
     """
 
-    images_dir = _ensure_dir(images_dir)
+    images_dir = ensure_dir(images_dir)
     xyz_path = Path(xyz_path)
 
     atom_str = xyz_file_to_pyscf_atom_string(xyz_path)

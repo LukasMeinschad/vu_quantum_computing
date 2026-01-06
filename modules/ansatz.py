@@ -15,22 +15,17 @@ Supported categories
    - UCCSD (typically used with HartreeFock)
 """
 
-from __future__ import annotations
-
 import inspect
-from typing import Literal, Optional
 
+from __future__ import annotations
+from typing import Optional
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import EfficientSU2, TwoLocal, RealAmplitudes
-
 from qiskit_nature.second_q.circuit.library import UCCSD, HartreeFock
 from qiskit_nature.second_q.mappers import QubitMapper
 
 
-ChemistryAnsatzKind = Literal["HartreeFock", "UCCSD"]
-
-
-def _ctor_accepts_kwarg(cls, kw: str) -> bool:
+def ctor_accepts_kwarg(cls, kw: str) -> bool:
     try:
         sig = inspect.signature(cls.__init__)
     except (TypeError, ValueError):
@@ -135,7 +130,7 @@ def build_uccsd_ansatz(
         initial_state=initial_state,
     )
 
-    if _ctor_accepts_kwarg(UCCSD, "reps"):
+    if ctor_accepts_kwarg(UCCSD, "reps"):
         kwargs["reps"] = reps
 
     return UCCSD(**kwargs)
@@ -188,4 +183,4 @@ def build_ansatz(
             reps=reps,
         )
 
-    raise ValueError(f"Unsupported ansatz kind: {ansatz_type}")
+    raise ValueError(f"Unsupported ansatz type: {ansatz_type}")

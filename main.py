@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 import numpy as np
+import matplotlib.pyplot as plt
 
+from pathlib import Path
 from qiskit_aer import AerSimulator
 from qiskit_aer.noise import NoiseModel, depolarizing_error
 from qiskit_aer.primitives import EstimatorV2
@@ -10,13 +11,11 @@ from qiskit_algorithms.optimizers import COBYLA
 from qiskit_nature.units import DistanceUnit
 from qiskit_nature.second_q.mappers import JordanWignerMapper
 
-import matplotlib.pyplot as plt
 
 from modules.molecule import MoleculeSpec, build_molecule_problem
 from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
 from modules.ansatz import build_uccsd_ansatz
 from modules.vqe import run_vqe_single_point
-
 from modules.bond_scan import bond_scan_diatomic_vqe
 from modules.joint_optimization import (
     joint_optimize_diatomic_bond_length,
