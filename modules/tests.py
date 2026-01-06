@@ -104,7 +104,6 @@ def compare_ansatz_types_h2(
 		basis=basis,
 		charge=charge,
 		spin=spin,
-		unit=DistanceUnit.ANGSTROM,
 	)
 
 	problem = build_molecule_problem(
@@ -226,7 +225,6 @@ def compare_optimizers_h2_uccsd(
 		basis=basis,
 		charge=charge,
 		spin=spin,
-		unit=DistanceUnit.ANGSTROM,
 	)
 
 	problem = build_molecule_problem(
@@ -316,8 +314,7 @@ def compare_entanglement_and_reps_h2(
 		charge=charge,
 		spin=spin,
 		unit=DistanceUnit.ANGSTROM,
-	)
-
+	
 	problem = build_molecule_problem(
 		spec,
 		freeze_core=False,

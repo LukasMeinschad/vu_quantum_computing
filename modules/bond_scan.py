@@ -80,7 +80,9 @@ def bond_scan_diatomic_vqe(
     spin: int = 0,
     unit: DistanceUnit = DistanceUnit.ANGSTROM,
     freeze_core: bool = False,
-    active_space: tuple[int, int] | None = None,  # (num_electrons, num_spatial_orbitals)
+    active_space: (
+        tuple[int, int] | None
+    ) = None,  # (num_electrons, num_spatial_orbitals)
     mapper: str = "JordanWigner",
     ansatz_method: str = "EfficientSU2",
     entanglement: str = "linear",
@@ -133,7 +135,6 @@ def bond_scan_diatomic_vqe(
             basis=basis,
             charge=charge,
             spin=spin,
-            unit=unit,
         )
         problem_used = build_molecule_problem(
             spec,
@@ -152,7 +153,11 @@ def bond_scan_diatomic_vqe(
         )
 
         init = None
-        if warm_start and (prev_params is not None) and (prev_num_params == ansatz.num_parameters):
+        if (
+            warm_start
+            and (prev_params is not None)
+            and (prev_num_params == ansatz.num_parameters)
+        ):
             init = prev_params
 
         run = run_vqe_single_point(
@@ -175,7 +180,9 @@ def bond_scan_diatomic_vqe(
         prev_params = scan_params[-1]
         prev_num_params = ansatz.num_parameters
 
-        print(f"[{i+1:02d}/{len(distances):02d}] d = {d:.6f} Å  ->  E = {e_final:.10f} Ha")
+        print(
+            f"[{i+1:02d}/{len(distances):02d}] d = {d:.6f} Å  ->  E = {e_final:.10f} Ha"
+        )
 
     if plot:
         # 1) energy vs distance
@@ -183,17 +190,24 @@ def bond_scan_diatomic_vqe(
         plt.plot(distances, scan_energies, marker="o")
         plt.xlabel("Bond distance (Å)")
         plt.ylabel("VQE energy (Ha)")
-        plt.title(f"{atom1}{atom2} VQE bond scan ({basis}, {ansatz_method}, reps={reps}, {mapper})")
+        plt.title(
+            f"{atom1}{atom2} VQE bond scan ({basis}, {ansatz_method}, reps={reps}, {mapper})"
+        )
         plt.grid(True)
         plt.tight_layout()
-        out1 = images_dir / f"bond_scan_{atom1}{atom2}_{basis}_{ansatz_method}_reps-{reps}_{mapper}.png"
+        out1 = (
+            images_dir
+            / f"bond_scan_{atom1}{atom2}_{basis}_{ansatz_method}_reps-{reps}_{mapper}.png"
+        )
         plt.savefig(out1, dpi=200)
         plt.close()
 
         # 2) convergence per distance
         plt.figure(figsize=(8, 6))
         cmap = plt.cm.viridis
-        norm = plt.Normalize(vmin=float(np.min(distances)), vmax=float(np.max(distances)))
+        norm = plt.Normalize(
+            vmin=float(np.min(distances)), vmax=float(np.max(distances))
+        )
 
         for d, energies in zip(distances, scan_convergence):
             xs = range(len(energies))
@@ -204,13 +218,18 @@ def bond_scan_diatomic_vqe(
 
         plt.xlabel("Cost function evaluations")
         plt.ylabel("VQE energy (Ha)")
-        plt.title(f"VQE convergence per distance ({atom1}{atom2}, {ansatz_method}, reps={reps})")
+        plt.title(
+            f"VQE convergence per distance ({atom1}{atom2}, {ansatz_method}, reps={reps})"
+        )
         ax = plt.gca()
         cbar = plt.colorbar(sm, ax=ax)
         cbar.set_label("Bond distance (Å)")
         plt.grid(True)
         plt.tight_layout()
-        out2 = images_dir / f"bond_scan_convergence_{atom1}{atom2}_{basis}_{ansatz_method}_reps-{reps}_{mapper}.png"
+        out2 = (
+            images_dir
+            / f"bond_scan_convergence_{atom1}{atom2}_{basis}_{ansatz_method}_reps-{reps}_{mapper}.png"
+        )
         plt.savefig(out2, dpi=200)
         plt.close()
 

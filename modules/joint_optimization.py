@@ -71,32 +71,6 @@ class WaterJointOptimizationResult:
     history_cost_energies: list[float]
 
 
-def _diatomic_atom_string(
-    atom1: str,
-    atom2: str,
-    distance: float,
-    *,
-    axis: Axis = "x",
-    symmetric: bool = True,
-) -> str:
-    axis = axis.lower()  # type: ignore[assignment]
-    if axis not in {"x", "y", "z"}:
-        raise ValueError("axis must be one of: 'x', 'y', 'z'")
-
-    if symmetric:
-        a = -0.5 * float(distance)
-        b = +0.5 * float(distance)
-        p1 = {"x": (a, 0.0, 0.0), "y": (0.0, a, 0.0), "z": (0.0, 0.0, a)}[axis]
-        p2 = {"x": (b, 0.0, 0.0), "y": (0.0, b, 0.0), "z": (0.0, 0.0, b)}[axis]
-    else:
-        a = 0.0
-        b = float(distance)
-        p1 = {"x": (a, 0.0, 0.0), "y": (0.0, a, 0.0), "z": (0.0, 0.0, a)}[axis]
-        p2 = {"x": (b, 0.0, 0.0), "y": (0.0, b, 0.0), "z": (0.0, 0.0, b)}[axis]
-
-    return f"{atom1} {p1[0]} {p1[1]} {p1[2]}; {atom2} {p2[0]} {p2[1]} {p2[2]}"
-
-
 def _make_qubit_mapper(*, mapper: str, problem: Any):
     from qiskit_nature.second_q.mappers import (
         BravyiKitaevMapper,
@@ -149,7 +123,6 @@ def joint_optimize_diatomic_bond_length(
     initial_distance: float,
     distance_window: tuple[float, float] | None,
     penalty_strength: float,
-    symmetric_geometry: bool,
     basis: str,
     charge: int,
     spin: int,
@@ -186,10 +159,6 @@ def joint_optimize_diatomic_bond_length(
     from qiskit_algorithms.optimizers import COBYLA
     from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
-    # Fixed parameters
-    axis: Axis = "x"
-    unit = DistanceUnit.ANGSTROM
-
     if backend is None:
         backend = AerSimulator()
 
@@ -197,19 +166,14 @@ def joint_optimize_diatomic_bond_length(
         optimizer = COBYLA(maxiter=maxiter)
 
     # --- Reference problem (fixes number of qubits and ansatz parameter count) ---
-    ref_atom = _diatomic_atom_string(
-        atom1,
-        atom2,
-        float(initial_distance),
-        axis=axis,
-        symmetric=symmetric_geometry,
-    )
+
+    ref_molecule = f"{atom1} 0.0 0.0 0.0; {atom2} 0.0 0.0 {float(initial_distance)}"
+
     ref_spec = MoleculeSpec(
-        atom=ref_atom,
+        atom=ref_molecule,
         basis=basis,
         charge=charge,
         spin=spin,
-        unit=unit,
     )
     ref_problem = build_molecule_problem(
         ref_spec,
@@ -272,19 +236,12 @@ def joint_optimize_diatomic_bond_length(
         d_min = d_max = 0.0
 
     def _evaluate_energy(theta: np.ndarray, distance: float) -> float:
-        atom_str = _diatomic_atom_string(
-            atom1,
-            atom2,
-            float(distance),
-            axis=axis,
-            symmetric=symmetric_geometry,
-        )
+        atom_str = f"{atom1} 0.0 0.0 0.0; {atom2} 0.0 0.0 {float(distance)}"
         spec = MoleculeSpec(
             atom=atom_str,
             basis=basis,
             charge=charge,
             spin=spin,
-            unit=unit,
         )
         problem = build_molecule_problem(
             spec,
@@ -328,7 +285,7 @@ def joint_optimize_diatomic_bond_length(
 
         if verbose:
             k = len(history_cost)
-            msg = f"Eval {k:03d}: d={distance:.6f} {unit.name}, E={raw_e:.10f} Ha"
+            msg = f"Eval {k:03d}: d={distance:.6f} {DistanceUnit.ANGSTROM.name}, E={raw_e:.10f} Ha"
             if distance_window is not None:
                 msg += f", cost={cost_e:.10f}"
             print(msg)
@@ -439,15 +396,14 @@ def joint_optimize_water_geometry(
         optimizer = COBYLA(maxiter=maxiter)
 
     # --- Reference problem (fixes qubit count and ansatz parameter count) ---
-    ref_atom = _water_atom_string(
+    ref_molecule = _water_atom_string(
         r1=initial_r1, r2=initial_r2, angle_deg=initial_angle_deg
     )
     ref_spec = MoleculeSpec(
-        atom=ref_atom,
+        atom=ref_molecule,
         basis=basis,
         charge=charge,
         spin=spin,
-        unit=unit,
     )
     ref_problem = build_molecule_problem(
         ref_spec,
@@ -529,7 +485,6 @@ def joint_optimize_water_geometry(
             basis=basis,
             charge=charge,
             spin=spin,
-            unit=unit,
         )
         problem = build_molecule_problem(
             spec,

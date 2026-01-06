@@ -17,7 +17,10 @@ from typing import Any, Iterable
 import numpy as np
 from qiskit_nature.second_q.drivers import PySCFDriver
 from qiskit_nature.second_q.formats.molecule_info import MoleculeInfo
-from qiskit_nature.second_q.transformers import ActiveSpaceTransformer, FreezeCoreTransformer
+from qiskit_nature.second_q.transformers import (
+    ActiveSpaceTransformer,
+    FreezeCoreTransformer,
+)
 from qiskit_nature.units import DistanceUnit
 
 
@@ -32,16 +35,16 @@ class MoleculeSpec:
         Either a PySCF atom string (recommended format: ';'-separated),
         e.g. "H 0 0 -0.37; H 0 0 0.37",
         or a Qiskit Nature MoleculeInfo.
-    basis, charge, spin, unit:
+    basis, charge, spin:
         Standard PySCFDriver settings.
     driver_kwargs:
         Extra keyword arguments passed to PySCFDriver.
     """
+
     atom: str | MoleculeInfo
-    basis: str = "sto3g"
-    charge: int = 0
-    spin: int = 0
-    unit: DistanceUnit = DistanceUnit.ANGSTROM
+    basis: str
+    charge: int
+    spin: int
     driver_kwargs: dict[str, Any] | None = None
 
 
@@ -67,11 +70,15 @@ def xyz_file_to_pyscf_atom_string(xyz_path: str | Path) -> str:
     try:
         n = int(lines[0])
     except ValueError as exc:
-        raise ValueError(f"First line must be the atom count, got: {lines[0]!r}") from exc
+        raise ValueError(
+            f"First line must be the atom count, got: {lines[0]!r}"
+        ) from exc
 
     body = lines[2 : 2 + n]
     if len(body) != n:
-        raise ValueError(f"XYZ declares {n} atoms but contains {len(body)} coordinate lines.")
+        raise ValueError(
+            f"XYZ declares {n} atoms but contains {len(body)} coordinate lines."
+        )
 
     atoms: list[str] = []
     for ln in body:
@@ -130,7 +137,9 @@ def build_molecule_problem(
     spec: MoleculeSpec,
     *,
     freeze_core: bool = False,
-    active_space: tuple[int, int] | None = None,  # (num_electrons, num_spatial_orbitals)
+    active_space: (
+        tuple[int, int] | None
+    ) = None,  # (num_electrons, num_spatial_orbitals)
     sanitize_active_space: bool = True,
 ):
     """
@@ -146,7 +155,7 @@ def build_molecule_problem(
         basis=spec.basis,
         charge=spec.charge,
         spin=spec.spin,
-        unit=spec.unit,
+        unit=DistanceUnit.ANGSTROM,
         **(spec.driver_kwargs or {}),
     )
     problem = driver.run()
@@ -158,7 +167,9 @@ def build_molecule_problem(
         nelec, norb = active_space
         if sanitize_active_space:
             nelec, norb = _sanitize_active_space(problem, (nelec, norb))
-        problem = ActiveSpaceTransformer(num_electrons=nelec, num_spatial_orbitals=norb).transform(problem)
+        problem = ActiveSpaceTransformer(
+            num_electrons=nelec, num_spatial_orbitals=norb
+        ).transform(problem)
 
     return problem
 

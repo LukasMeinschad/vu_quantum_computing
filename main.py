@@ -62,7 +62,6 @@ if __name__ == "__main__":
         basis="sto3g",
         charge=0,
         spin=0,
-        unit=DistanceUnit.ANGSTROM,
     )
     h2_problem = build_molecule_problem(
         h2_spec,
@@ -217,7 +216,6 @@ if __name__ == "__main__":
     #            initial_distance=d0,
     #            distance_window=window,
     #            penalty_strength=100.0,
-    #            symmetric_geometry=True,
     #            basis="sto3g",
     #            charge=0,
     #            spin=0,
@@ -255,7 +253,6 @@ if __name__ == "__main__":
         initial_distance=h2_d0,
         distance_window=h2_window,
         penalty_strength=100.0,
-        symmetric_geometry=True,
         basis="sto3g",
         charge=0,
         spin=0,
@@ -281,7 +278,6 @@ if __name__ == "__main__":
         initial_distance=h2_d0,
         distance_window=h2_window,
         penalty_strength=100.0,
-        symmetric_geometry=True,
         basis="sto3g",
         charge=0,
         spin=0,
