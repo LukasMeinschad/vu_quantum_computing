@@ -870,36 +870,61 @@ def run_h2o_joint_optimization() -> Any:
     backend = AerSimulator()
     water_optimizer = COBYLA(maxiter=120)
 
+    water_config = {
+        "initial_r1": 1.0,
+        "initial_r2": 1.0,
+        "initial_angle_deg": 105.0,
+        "r1_window": (0.7, 1.3),
+        "r2_window": (0.7, 1.3),
+        "angle_window_deg": (80.0, 130.0),
+        "penalty_strength": 100.0,
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "unit": DistanceUnit.ANGSTROM,
+        "freeze_core": True,
+        "active_space": (8, 6),
+        "mapper": "JordanWigner",
+        "backend": backend,
+        "optimization_level": 0,
+        "seed": 42,
+        "initial_theta": None,
+        "verbose": False,
+        "ansatz_type": "UCCSD",
+        "reps": 1,
+        "optimizer_maxiter": 120,
+    }
+
     print("\n=== Joint optimization for H2O (r1, r2, angle) with UCCSD ===")
 
     water_kwargs = dict(
-        initial_r1=1.0,
-        initial_r2=1.0,
-        initial_angle_deg=105.0,
-        r1_window=(0.7, 1.3),
-        r2_window=(0.7, 1.3),
-        angle_window_deg=(80.0, 130.0),
-        penalty_strength=100.0,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        unit=DistanceUnit.ANGSTROM,
-        freeze_core=True,
-        active_space=(8, 6),
-        mapper="JordanWigner",
-        backend=backend,
-        optimization_level=0,
-        seed=42,
-        initial_theta=None,
-        verbose=False,
+        initial_r1=water_config["initial_r1"],
+        initial_r2=water_config["initial_r2"],
+        initial_angle_deg=water_config["initial_angle_deg"],
+        r1_window=water_config["r1_window"],
+        r2_window=water_config["r2_window"],
+        angle_window_deg=water_config["angle_window_deg"],
+        penalty_strength=water_config["penalty_strength"],
+        basis=water_config["basis"],
+        charge=water_config["charge"],
+        spin=water_config["spin"],
+        unit=water_config["unit"],
+        freeze_core=water_config["freeze_core"],
+        active_space=water_config["active_space"],
+        mapper=water_config["mapper"],
+        backend=water_config["backend"],
+        optimization_level=water_config["optimization_level"],
+        seed=water_config["seed"],
+        initial_theta=water_config["initial_theta"],
+        verbose=water_config["verbose"],
     )
 
     water_uccsd = joint_optimize_water_geometry(
         **water_kwargs,
-        ansatz_type="UCCSD",
-        reps=1,
+        ansatz_type=water_config["ansatz_type"],
+        reps=water_config["reps"],
         optimizer=water_optimizer,
-        maxiter=120,
+        maxiter=water_config["optimizer_maxiter"],
     )
 
     print(
