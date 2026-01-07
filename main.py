@@ -16,8 +16,8 @@ from modules.jobs import (
 if __name__ == "__main__":
     
     # Comparisons
-    run_h2_noise_benchmark()
-    run_h2_joint_comparison()
+    # run_h2_noise_benchmark()
+    # run_h2_joint_comparison()
     
     # Bond scans
     run_h2_bond_scan()

@@ -31,6 +31,25 @@ IMAGES_DIR = Path("images")
 DATA_DIR = Path("data")
 
 
+def json_safe(value: Any) -> Any:
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def optimizer_metadata(optimizer_or_builder: Any) -> dict[str, Any]:
+    opt_obj = (
+        optimizer_or_builder()
+        if callable(optimizer_or_builder)
+        else optimizer_or_builder
+    )
+    metadata = {"name": type(opt_obj).__name__}
+    settings = getattr(opt_obj, "settings", None)
+    if isinstance(settings, dict):
+        metadata["settings"] = {str(k): json_safe(v) for k, v in settings.items()}
+    return metadata
+
+
 def make_noisy_estimator(
     *, scale: float, p1_base: float, p2_base: float
 ) -> EstimatorV2:
@@ -59,27 +78,42 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
 
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
+    h2_settings = {
+        "basis": "sto3g",
+        "freeze_core": False,
+        "active_space": (2, 2),
+        "mapper": "JordanWigner",
+        "ansatz_reps": 1,
+        "initial_params_seed": 42,
+        "optimizer_maxiter": 120,
+    }
+
     backend = AerSimulator()
     jw_mapper = JordanWignerMapper()
 
     h2_spec = MoleculeSpec(
-        atom="H 0 0 -0.37; H 0 0 0.37", basis="sto3g", charge=0, spin=0
+        atom="H 0 0 -0.37; H 0 0 0.37", basis=h2_settings["basis"], charge=0, spin=0
     )
     h2_problem = build_molecule_problem(
         h2_spec,
-        freeze_core=False,
-        active_space=(2, 2),
+        freeze_core=h2_settings["freeze_core"],
+        active_space=h2_settings["active_space"],
         sanitize_active_space_flag=True,
     )
-    h2_qubit_hamiltonian = map_to_qubit_hamiltonian(h2_problem, mapper="JordanWigner")
+    h2_qubit_hamiltonian = map_to_qubit_hamiltonian(
+        h2_problem, mapper=h2_settings["mapper"]
+    )
     h2_ansatz = build_uccsd_ansatz(
-        h2_problem, qubit_mapper=jw_mapper, initial_state=None, reps=1
+        h2_problem,
+        qubit_mapper=jw_mapper,
+        initial_state=None,
+        reps=h2_settings["ansatz_reps"],
     )
 
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng(h2_settings["initial_params_seed"])
     x0 = rng.random(h2_ansatz.num_parameters)
 
-    maxiter = 120
+    maxiter = h2_settings["optimizer_maxiter"]
     optimizer = COBYLA(maxiter=maxiter)
 
     ideal_estimator = EstimatorV2()
@@ -104,9 +138,7 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
     noisy_finals: list[float] = []
 
     for scale in noise_scales:
-        noisy_estimator = make_noisy_estimator(
-            scale=scale, p1_base=0.001, p2_base=0.01
-        )
+        noisy_estimator = make_noisy_estimator(scale=scale, p1_base=0.001, p2_base=0.01)
         print(f"\n=== H2: noisy VQE (UCCSD), scale={scale:g} ===")
 
         run_noisy = run_vqe_single_point(
@@ -167,6 +199,17 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
             str(float(scale)): [float(e) for e in noisy_runs[scale].energies]
             for scale in noise_scales
         },
+        "metadata": {
+            "basis": h2_spec.basis,
+            "mapper": h2_settings["mapper"],
+            "ansatz": "UCCSD",
+            "reps": h2_ansatz.reps,
+            "optimizer": optimizer_metadata(optimizer),
+            "active_space": h2_settings["active_space"],
+            "freeze_core": h2_settings["freeze_core"],
+            "backend": "AerSimulator",
+            "initial_params_seed": h2_settings["initial_params_seed"],
+        },
     }
     with open(DATA_DIR / "h2_noise_benchmark.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
@@ -188,57 +231,77 @@ def run_h2_joint_comparison() -> dict[str, Any]:
 
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
+    shared = {
+        "atom1": "H",
+        "atom2": "H",
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "freeze_core": False,
+        "active_space": (2, 2),
+        "mapper": "JordanWigner",
+        "entanglement": "linear",
+        "penalty_strength": 100.0,
+        "distance_window": (0.4, 2.0),
+        "seed": 42,
+        "maxiter": 80,
+    }
+
     backend = AerSimulator()
 
-    h2_window = (0.4, 2.0)
+    h2_window = shared["distance_window"]
     h2_d0 = 0.74
 
     print("\n=== H2 joint optimization: EfficientSU2 vs UCCSD ===")
 
+    eff_optimizer = COBYLA(maxiter=80)
+
     h2_eff = joint_optimize_diatomic_bond_length(
-        atom1="H",
-        atom2="H",
+        atom1=shared["atom1"],
+        atom2=shared["atom2"],
         initial_distance=h2_d0,
-        distance_window=h2_window,
-        penalty_strength=100.0,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(2, 2),
-        mapper="JordanWigner",
+        distance_window=shared["distance_window"],
+        penalty_strength=shared["penalty_strength"],
+        basis=shared["basis"],
+        charge=shared["charge"],
+        spin=shared["spin"],
+        freeze_core=shared["freeze_core"],
+        active_space=shared["active_space"],
+        mapper=shared["mapper"],
         ansatz_type="EfficientSU2",
-        entanglement="linear",
+        entanglement=shared["entanglement"],
         reps=2,
-        optimizer=COBYLA(maxiter=80),
-        maxiter=80,
+        optimizer=eff_optimizer,
+        maxiter=shared["maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=shared["seed"],
         initial_theta=None,
         verbose=False,
     )
 
+    uccsd_optimizer = COBYLA(maxiter=80)
+
     h2_uccsd = joint_optimize_diatomic_bond_length(
-        atom1="H",
-        atom2="H",
+        atom1=shared["atom1"],
+        atom2=shared["atom2"],
         initial_distance=h2_d0,
-        distance_window=h2_window,
-        penalty_strength=100.0,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(2, 2),
-        mapper="JordanWigner",
+        distance_window=shared["distance_window"],
+        penalty_strength=shared["penalty_strength"],
+        basis=shared["basis"],
+        charge=shared["charge"],
+        spin=shared["spin"],
+        freeze_core=shared["freeze_core"],
+        active_space=shared["active_space"],
+        mapper=shared["mapper"],
         ansatz_type="UCCSD",
-        entanglement="linear",
+        entanglement=shared["entanglement"],
         reps=1,
-        optimizer=COBYLA(maxiter=80),
-        maxiter=80,
+        optimizer=uccsd_optimizer,
+        maxiter=shared["maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=shared["seed"],
         initial_theta=None,
         verbose=False,
     )
@@ -281,12 +344,36 @@ def run_h2_joint_comparison() -> dict[str, Any]:
             "optimal_energy": float(h2_eff.optimal_energy),
             "history_cost_energies": [float(e) for e in h2_eff.history_cost_energies],
             "history_distances": [float(d) for d in h2_eff.history_distances],
+            "metadata": {
+                "basis": "sto3g",
+                "mapper": shared["mapper"],
+                "ansatz": "EfficientSU2",
+                "reps": 2,
+                "optimizer": optimizer_metadata(eff_optimizer),
+                "active_space": shared["active_space"],
+                "freeze_core": shared["freeze_core"],
+                "penalty_strength": shared["penalty_strength"],
+                "distance_window": shared["distance_window"],
+                "seed": shared["seed"],
+            },
         },
         "uccsd": {
             "optimal_distance": float(h2_uccsd.optimal_distance),
             "optimal_energy": float(h2_uccsd.optimal_energy),
             "history_cost_energies": [float(e) for e in h2_uccsd.history_cost_energies],
             "history_distances": [float(d) for d in h2_uccsd.history_distances],
+            "metadata": {
+                "basis": "sto3g",
+                "mapper": shared["mapper"],
+                "ansatz": "UCCSD",
+                "reps": 1,
+                "optimizer": optimizer_metadata(uccsd_optimizer),
+                "active_space": shared["active_space"],
+                "freeze_core": shared["freeze_core"],
+                "penalty_strength": shared["penalty_strength"],
+                "distance_window": shared["distance_window"],
+                "seed": shared["seed"],
+            },
         },
     }
     with open(DATA_DIR / "h2_joint_comparison.json", "w") as f:
@@ -304,27 +391,47 @@ def run_h2_joint_optimization() -> dict[str, Any]:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     backend = AerSimulator()
 
+    h2_config = {
+        "atom1": "H",
+        "atom2": "H",
+        "initial_distance": 0.74,
+        "distance_window": (0.4, 2.0),
+        "penalty_strength": 100.0,
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "freeze_core": False,
+        "active_space": (2, 2),
+        "mapper": "JordanWigner",
+        "ansatz_type": "UCCSD",
+        "entanglement": "linear",
+        "reps": 2,
+        "optimizer_maxiter": 80,
+        "seed": 42,
+    }
+
     print("\n=== H2 joint optimization ===")
+    optimizer = COBYLA(maxiter=h2_config["optimizer_maxiter"])
     result = joint_optimize_diatomic_bond_length(
-        atom1="H",
-        atom2="H",
-        initial_distance=0.74,
-        distance_window=(0.4, 2.0),
-        penalty_strength=100.0,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(2, 2),
-        mapper="JordanWigner",
-        ansatz_type="UCCSD",
-        entanglement="linear",
-        reps=2,
-        optimizer=COBYLA(maxiter=80),
-        maxiter=80,
+        atom1=h2_config["atom1"],
+        atom2=h2_config["atom2"],
+        initial_distance=h2_config["initial_distance"],
+        distance_window=h2_config["distance_window"],
+        penalty_strength=h2_config["penalty_strength"],
+        basis=h2_config["basis"],
+        charge=h2_config["charge"],
+        spin=h2_config["spin"],
+        freeze_core=h2_config["freeze_core"],
+        active_space=h2_config["active_space"],
+        mapper=h2_config["mapper"],
+        ansatz_type=h2_config["ansatz_type"],
+        entanglement=h2_config["entanglement"],
+        reps=h2_config["reps"],
+        optimizer=optimizer,
+        maxiter=h2_config["optimizer_maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=h2_config["seed"],
         initial_theta=None,
         verbose=True,
     )
@@ -341,6 +448,18 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         "history_cost_energies": [float(e) for e in result.history_cost_energies],
         "history_distances": [float(d) for d in result.history_distances],
         "history_raw_energies": [float(e) for e in result.history_raw_energies],
+        "metadata": {
+            "basis": h2_config["basis"],
+            "mapper": h2_config["mapper"],
+            "ansatz": h2_config["ansatz_type"],
+            "reps": h2_config["reps"],
+            "optimizer": optimizer_metadata(optimizer),
+            "active_space": h2_config["active_space"],
+            "freeze_core": h2_config["freeze_core"],
+            "penalty_strength": h2_config["penalty_strength"],
+            "distance_window": h2_config["distance_window"],
+            "seed": h2_config["seed"],
+        },
     }
     with open(DATA_DIR / "h2_joint_optimization.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
@@ -354,27 +473,47 @@ def run_lih_joint_optimization() -> dict[str, Any]:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     backend = AerSimulator()
 
+    lih_config = {
+        "atom1": "Li",
+        "atom2": "H",
+        "initial_distance": 1.6,
+        "distance_window": (0.8, 3.0),
+        "penalty_strength": 100.0,
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "freeze_core": False,
+        "active_space": (2, 3),
+        "mapper": "JordanWigner",
+        "ansatz_type": "UCCSD",
+        "entanglement": "linear",
+        "reps": 2,
+        "optimizer_maxiter": 100,
+        "seed": 42,
+    }
+
     print("\n=== LiH joint optimization ===")
+    optimizer = COBYLA(maxiter=lih_config["optimizer_maxiter"])
     result = joint_optimize_diatomic_bond_length(
-        atom1="Li",
-        atom2="H",
-        initial_distance=1.6,
-        distance_window=(0.8, 3.0),
-        penalty_strength=100.0,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(2, 3),
-        mapper="JordanWigner",
-        ansatz_type="UCCSD",
-        entanglement="linear",
-        reps=2,
-        optimizer=COBYLA(maxiter=100),
-        maxiter=100,
+        atom1=lih_config["atom1"],
+        atom2=lih_config["atom2"],
+        initial_distance=lih_config["initial_distance"],
+        distance_window=lih_config["distance_window"],
+        penalty_strength=lih_config["penalty_strength"],
+        basis=lih_config["basis"],
+        charge=lih_config["charge"],
+        spin=lih_config["spin"],
+        freeze_core=lih_config["freeze_core"],
+        active_space=lih_config["active_space"],
+        mapper=lih_config["mapper"],
+        ansatz_type=lih_config["ansatz_type"],
+        entanglement=lih_config["entanglement"],
+        reps=lih_config["reps"],
+        optimizer=optimizer,
+        maxiter=lih_config["optimizer_maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=lih_config["seed"],
         initial_theta=None,
         verbose=True,
     )
@@ -391,6 +530,18 @@ def run_lih_joint_optimization() -> dict[str, Any]:
         "history_cost_energies": [float(e) for e in result.history_cost_energies],
         "history_distances": [float(d) for d in result.history_distances],
         "history_raw_energies": [float(e) for e in result.history_raw_energies],
+        "metadata": {
+            "basis": lih_config["basis"],
+            "mapper": lih_config["mapper"],
+            "ansatz": lih_config["ansatz_type"],
+            "reps": lih_config["reps"],
+            "optimizer": optimizer_metadata(optimizer),
+            "active_space": lih_config["active_space"],
+            "freeze_core": lih_config["freeze_core"],
+            "penalty_strength": lih_config["penalty_strength"],
+            "distance_window": lih_config["distance_window"],
+            "seed": lih_config["seed"],
+        },
     }
     with open(DATA_DIR / "lih_joint_optimization.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
@@ -404,27 +555,50 @@ def run_hf_joint_optimization() -> dict[str, Any]:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     backend = AerSimulator()
 
+    hf_config = {
+        "atom1": "H",
+        "atom2": "F",
+        "initial_distance": 0.92,
+        "distance_window": (0.5, 1.5),
+        "penalty_strength": 100.0,
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "freeze_core": False,
+        "active_space": (8, 6),
+        "mapper": "JordanWigner",
+        "ansatz_type": "UCCSD",
+        "entanglement": "linear",
+        "reps": 2,
+        "optimizer_maxiter": 100,
+        "optimizer_rhobeg": 0.5,
+        "seed": 42,
+    }
+
     print("\n=== HF joint optimization ===")
+    optimizer = COBYLA(
+        maxiter=hf_config["optimizer_maxiter"], rhobeg=hf_config["optimizer_rhobeg"]
+    )
     result = joint_optimize_diatomic_bond_length(
-        atom1="H",
-        atom2="F",
-        initial_distance=0.92,
-        distance_window=(0.5, 1.5),
-        penalty_strength=100.0,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(8, 6),
-        mapper="JordanWigner",
-        ansatz_type="UCCSD",
-        entanglement="linear",
-        reps=2,
-        optimizer=COBYLA(maxiter=100, rhobeg=0.5),
-        maxiter=100,
+        atom1=hf_config["atom1"],
+        atom2=hf_config["atom2"],
+        initial_distance=hf_config["initial_distance"],
+        distance_window=hf_config["distance_window"],
+        penalty_strength=hf_config["penalty_strength"],
+        basis=hf_config["basis"],
+        charge=hf_config["charge"],
+        spin=hf_config["spin"],
+        freeze_core=hf_config["freeze_core"],
+        active_space=hf_config["active_space"],
+        mapper=hf_config["mapper"],
+        ansatz_type=hf_config["ansatz_type"],
+        entanglement=hf_config["entanglement"],
+        reps=hf_config["reps"],
+        optimizer=optimizer,
+        maxiter=hf_config["optimizer_maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=hf_config["seed"],
         initial_theta=None,
         verbose=True,
     )
@@ -441,6 +615,18 @@ def run_hf_joint_optimization() -> dict[str, Any]:
         "history_cost_energies": [float(e) for e in result.history_cost_energies],
         "history_distances": [float(d) for d in result.history_distances],
         "history_raw_energies": [float(e) for e in result.history_raw_energies],
+        "metadata": {
+            "basis": hf_config["basis"],
+            "mapper": hf_config["mapper"],
+            "ansatz": hf_config["ansatz_type"],
+            "reps": hf_config["reps"],
+            "optimizer": optimizer_metadata(optimizer),
+            "active_space": hf_config["active_space"],
+            "freeze_core": hf_config["freeze_core"],
+            "penalty_strength": hf_config["penalty_strength"],
+            "distance_window": hf_config["distance_window"],
+            "seed": hf_config["seed"],
+        },
     }
     with open(DATA_DIR / "hf_joint_optimization.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
@@ -454,27 +640,48 @@ def run_h2_bond_scan() -> dict[str, Any]:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
     backend = AerSimulator()
-    distances = np.linspace(0.4, 1.0, 30)
+    h2_scan_config = {
+        "atom1": "H",
+        "atom2": "H",
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "freeze_core": False,
+        "active_space": (2, 2),
+        "mapper": "JordanWigner",
+        "ansatz_method": "UCCSD",
+        "entanglement": "linear",
+        "reps": 2,
+        "optimizer_maxiter": 150,
+        "seed": 42,
+        "distances": np.linspace(0.4, 1.0, 30),
+    }
+
+    distances = h2_scan_config["distances"]
+    distance_grid_label = (
+        f"np.linspace({distances[0]:.3f}, {distances[-1]:.3f}, {len(distances)})"
+    )
+    optimizer_builder = lambda: COBYLA(maxiter=h2_scan_config["optimizer_maxiter"])
 
     print("\n=== Bond scan for H2 ===")
     res = bond_scan_diatomic_vqe(
-        atom1="H",
-        atom2="H",
+        atom1=h2_scan_config["atom1"],
+        atom2=h2_scan_config["atom2"],
         distances=distances,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(2, 2),
-        mapper="JordanWigner",
-        ansatz_method="UCCSD",
-        entanglement="linear",
-        reps=2,
-        optimizer_builder=lambda: COBYLA(maxiter=150),
-        maxiter=150,
+        basis=h2_scan_config["basis"],
+        charge=h2_scan_config["charge"],
+        spin=h2_scan_config["spin"],
+        freeze_core=h2_scan_config["freeze_core"],
+        active_space=h2_scan_config["active_space"],
+        mapper=h2_scan_config["mapper"],
+        ansatz_method=h2_scan_config["ansatz_method"],
+        entanglement=h2_scan_config["entanglement"],
+        reps=h2_scan_config["reps"],
+        optimizer_builder=optimizer_builder,
+        maxiter=h2_scan_config["optimizer_maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=h2_scan_config["seed"],
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
@@ -485,6 +692,17 @@ def run_h2_bond_scan() -> dict[str, Any]:
     data_to_save = {
         "distances": [float(d) for d in res["distances"]],
         "energies": [float(e) for e in res["energies"]],
+        "metadata": {
+            "basis": h2_scan_config["basis"],
+            "mapper": h2_scan_config["mapper"],
+            "ansatz": h2_scan_config["ansatz_method"],
+            "reps": h2_scan_config["reps"],
+            "optimizer": optimizer_metadata(optimizer_builder),
+            "active_space": h2_scan_config["active_space"],
+            "freeze_core": h2_scan_config["freeze_core"],
+            "seed": h2_scan_config["seed"],
+            "distance_grid": distance_grid_label,
+        },
     }
     with open(DATA_DIR / "h2_bond_scan.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
@@ -498,27 +716,48 @@ def run_lih_bond_scan() -> dict[str, Any]:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
     backend = AerSimulator()
-    distances = np.linspace(1.1, 1.9, 30)
+    lih_scan_config = {
+        "atom1": "Li",
+        "atom2": "H",
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "freeze_core": False,
+        "active_space": (2, 3),
+        "mapper": "JordanWigner",
+        "ansatz_method": "UCCSD",
+        "entanglement": "linear",
+        "reps": 2,
+        "optimizer_maxiter": 150,
+        "seed": 42,
+        "distances": np.linspace(1.1, 1.9, 30),
+    }
+
+    distances = lih_scan_config["distances"]
+    distance_grid_label = (
+        f"np.linspace({distances[0]:.3f}, {distances[-1]:.3f}, {len(distances)})"
+    )
+    optimizer_builder = lambda: COBYLA(maxiter=lih_scan_config["optimizer_maxiter"])
 
     print("\n=== Bond scan for LiH ===")
     res = bond_scan_diatomic_vqe(
-        atom1="Li",
-        atom2="H",
+        atom1=lih_scan_config["atom1"],
+        atom2=lih_scan_config["atom2"],
         distances=distances,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(2, 3),
-        mapper="JordanWigner",
-        ansatz_method="UCCSD",
-        entanglement="linear",
-        reps=2,
-        optimizer_builder=lambda: COBYLA(maxiter=150),
-        maxiter=150,
+        basis=lih_scan_config["basis"],
+        charge=lih_scan_config["charge"],
+        spin=lih_scan_config["spin"],
+        freeze_core=lih_scan_config["freeze_core"],
+        active_space=lih_scan_config["active_space"],
+        mapper=lih_scan_config["mapper"],
+        ansatz_method=lih_scan_config["ansatz_method"],
+        entanglement=lih_scan_config["entanglement"],
+        reps=lih_scan_config["reps"],
+        optimizer_builder=optimizer_builder,
+        maxiter=lih_scan_config["optimizer_maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=lih_scan_config["seed"],
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
@@ -529,6 +768,17 @@ def run_lih_bond_scan() -> dict[str, Any]:
     data_to_save = {
         "distances": [float(d) for d in res["distances"]],
         "energies": [float(e) for e in res["energies"]],
+        "metadata": {
+            "basis": lih_scan_config["basis"],
+            "mapper": lih_scan_config["mapper"],
+            "ansatz": lih_scan_config["ansatz_method"],
+            "reps": lih_scan_config["reps"],
+            "optimizer": optimizer_metadata(optimizer_builder),
+            "active_space": lih_scan_config["active_space"],
+            "freeze_core": lih_scan_config["freeze_core"],
+            "seed": lih_scan_config["seed"],
+            "distance_grid": distance_grid_label,
+        },
     }
     with open(DATA_DIR / "lih_bond_scan.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
@@ -542,27 +792,48 @@ def run_hf_bond_scan() -> dict[str, Any]:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
     backend = AerSimulator()
-    distances = np.linspace(0.5, 1.8, 30)
+    hf_scan_config = {
+        "atom1": "H",
+        "atom2": "F",
+        "basis": "sto3g",
+        "charge": 0,
+        "spin": 0,
+        "freeze_core": False,
+        "active_space": (8, 6),
+        "mapper": "JordanWigner",
+        "ansatz_method": "UCCSD",
+        "entanglement": "linear",
+        "reps": 2,
+        "optimizer_maxiter": 150,
+        "seed": 42,
+        "distances": np.linspace(0.5, 1.8, 30),
+    }
+
+    distances = hf_scan_config["distances"]
+    distance_grid_label = (
+        f"np.linspace({distances[0]:.3f}, {distances[-1]:.3f}, {len(distances)})"
+    )
+    optimizer_builder = lambda: COBYLA(maxiter=hf_scan_config["optimizer_maxiter"])
 
     print("\n=== Bond scan for HF ===")
     res = bond_scan_diatomic_vqe(
-        atom1="H",
-        atom2="F",
+        atom1=hf_scan_config["atom1"],
+        atom2=hf_scan_config["atom2"],
         distances=distances,
-        basis="sto3g",
-        charge=0,
-        spin=0,
-        freeze_core=False,
-        active_space=(8, 6),
-        mapper="JordanWigner",
-        ansatz_method="UCCSD",
-        entanglement="linear",
-        reps=2,
-        optimizer_builder=lambda: COBYLA(maxiter=150),
-        maxiter=150,
+        basis=hf_scan_config["basis"],
+        charge=hf_scan_config["charge"],
+        spin=hf_scan_config["spin"],
+        freeze_core=hf_scan_config["freeze_core"],
+        active_space=hf_scan_config["active_space"],
+        mapper=hf_scan_config["mapper"],
+        ansatz_method=hf_scan_config["ansatz_method"],
+        entanglement=hf_scan_config["entanglement"],
+        reps=hf_scan_config["reps"],
+        optimizer_builder=optimizer_builder,
+        maxiter=hf_scan_config["optimizer_maxiter"],
         backend=backend,
         optimization_level=0,
-        seed=42,
+        seed=hf_scan_config["seed"],
         warm_start=True,
         plot=True,
         images_dir=IMAGES_DIR,
@@ -573,6 +844,17 @@ def run_hf_bond_scan() -> dict[str, Any]:
     data_to_save = {
         "distances": [float(d) for d in res["distances"]],
         "energies": [float(e) for e in res["energies"]],
+        "metadata": {
+            "basis": hf_scan_config["basis"],
+            "mapper": hf_scan_config["mapper"],
+            "ansatz": hf_scan_config["ansatz_method"],
+            "reps": hf_scan_config["reps"],
+            "optimizer": optimizer_metadata(optimizer_builder),
+            "active_space": hf_scan_config["active_space"],
+            "freeze_core": hf_scan_config["freeze_core"],
+            "seed": hf_scan_config["seed"],
+            "distance_grid": distance_grid_label,
+        },
     }
     with open(DATA_DIR / "hf_bond_scan.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
@@ -586,6 +868,7 @@ def run_h2o_joint_optimization() -> Any:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
     backend = AerSimulator()
+    water_optimizer = COBYLA(maxiter=120)
 
     print("\n=== Joint optimization for H2O (r1, r2, angle) with UCCSD ===")
 
@@ -615,7 +898,7 @@ def run_h2o_joint_optimization() -> Any:
         **water_kwargs,
         ansatz_type="UCCSD",
         reps=1,
-        optimizer=COBYLA(maxiter=120),
+        optimizer=water_optimizer,
         maxiter=120,
     )
 
@@ -636,6 +919,22 @@ def run_h2o_joint_optimization() -> Any:
         "history_r2": [float(r) for r in water_uccsd.history_r2],
         "history_angle_deg": [float(a) for a in water_uccsd.history_angle_deg],
         "history_cost_energies": [float(e) for e in water_uccsd.history_cost_energies],
+        "metadata": {
+            "basis": water_config["basis"],
+            "mapper": water_config["mapper"],
+            "ansatz": water_config["ansatz_type"],
+            "reps": water_config["reps"],
+            "optimizer": optimizer_metadata(water_optimizer),
+            "active_space": water_config["active_space"],
+            "freeze_core": water_config["freeze_core"],
+            "seed": water_config["seed"],
+            "penalty_strength": water_config["penalty_strength"],
+            "geometry_windows": {
+                "r1_window": water_config["r1_window"],
+                "r2_window": water_config["r2_window"],
+                "angle_window_deg": water_config["angle_window_deg"],
+            },
+        },
     }
     with open(DATA_DIR / "h2o_joint_optimization.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
