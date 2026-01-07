@@ -31,8 +31,8 @@ IMAGES_DIR = Path("images")
 DATA_DIR = Path("data")
 
 
-def _make_noisy_estimator(
-    *, scale: float, p1_base: float = 0.001, p2_base: float = 0.01
+def make_noisy_estimator(
+    *, scale: float, p1_base: float, p2_base: float
 ) -> EstimatorV2:
     """Create an EstimatorV2 configured with a scaled depolarizing noise model."""
     noise_model = NoiseModel()
@@ -104,7 +104,7 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
     noisy_finals: list[float] = []
 
     for scale in noise_scales:
-        noisy_estimator = _make_noisy_estimator(
+        noisy_estimator = make_noisy_estimator(
             scale=scale, p1_base=0.001, p2_base=0.01
         )
         print(f"\n=== H2: noisy VQE (UCCSD), scale={scale:g} ===")
