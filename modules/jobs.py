@@ -86,6 +86,8 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
         "ansatz_reps": 1,
         "initial_params_seed": 42,
         "optimizer_maxiter": 120,
+        "optimizer_rhobeg": 1.0,
+        "optimizer_tol": 1e-6,
     }
 
     backend = AerSimulator()
@@ -114,7 +116,11 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
     x0 = rng.random(h2_ansatz.num_parameters)
 
     maxiter = h2_settings["optimizer_maxiter"]
-    optimizer = COBYLA(maxiter=maxiter)
+    optimizer = COBYLA(
+        maxiter=maxiter,
+        rhobeg=h2_settings["optimizer_rhobeg"],
+        tol=h2_settings["optimizer_tol"],
+    )
 
     ideal_estimator = EstimatorV2()
     print("\n=== H2: ideal VQE (UCCSD) ===")
@@ -145,7 +151,11 @@ def run_h2_noise_benchmark() -> dict[str, Any]:
             problem=h2_problem,
             qubit_hamiltonian=h2_qubit_hamiltonian,
             ansatz=h2_ansatz,
-            optimizer=COBYLA(maxiter=maxiter),
+            optimizer=COBYLA(
+                maxiter=maxiter,
+                rhobeg=h2_settings["optimizer_rhobeg"],
+                tol=h2_settings["optimizer_tol"],
+            ),
             initial_params=x0,
             backend=backend,
             optimization_level=0,
@@ -245,6 +255,8 @@ def run_h2_joint_comparison() -> dict[str, Any]:
         "distance_window": (0.4, 2.0),
         "seed": 42,
         "maxiter": 80,
+        "rhobeg": 1.0,
+        "tol": 1e-6,
     }
 
     backend = AerSimulator()
@@ -254,7 +266,9 @@ def run_h2_joint_comparison() -> dict[str, Any]:
 
     print("\n=== H2 joint optimization: EfficientSU2 vs UCCSD ===")
 
-    eff_optimizer = COBYLA(maxiter=80)
+    eff_optimizer = COBYLA(
+        maxiter=shared["maxiter"], rhobeg=shared["rhobeg"], tol=shared["tol"]
+    )
 
     h2_eff = joint_optimize_diatomic_bond_length(
         atom1=shared["atom1"],
@@ -280,7 +294,9 @@ def run_h2_joint_comparison() -> dict[str, Any]:
         verbose=False,
     )
 
-    uccsd_optimizer = COBYLA(maxiter=80)
+    uccsd_optimizer = COBYLA(
+        maxiter=shared["maxiter"], rhobeg=shared["rhobeg"], tol=shared["tol"]
+    )
 
     h2_uccsd = joint_optimize_diatomic_bond_length(
         atom1=shared["atom1"],
@@ -407,11 +423,17 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         "entanglement": "linear",
         "reps": 2,
         "optimizer_maxiter": 80,
+        "optimizer_rhobeg": 1.0,
+        "optimizer_tol": 1e-6,
         "seed": 42,
     }
 
     print("\n=== H2 joint optimization ===")
-    optimizer = COBYLA(maxiter=h2_config["optimizer_maxiter"])
+    optimizer = COBYLA(
+        maxiter=h2_config["optimizer_maxiter"],
+        rhobeg=h2_config["optimizer_rhobeg"],
+        tol=h2_config["optimizer_tol"],
+    )
     result = joint_optimize_diatomic_bond_length(
         atom1=h2_config["atom1"],
         atom2=h2_config["atom2"],
@@ -489,11 +511,17 @@ def run_lih_joint_optimization() -> dict[str, Any]:
         "entanglement": "linear",
         "reps": 2,
         "optimizer_maxiter": 100,
+        "optimizer_rhobeg": 1.0,
+        "optimizer_tol": 1e-6,
         "seed": 42,
     }
 
     print("\n=== LiH joint optimization ===")
-    optimizer = COBYLA(maxiter=lih_config["optimizer_maxiter"])
+    optimizer = COBYLA(
+        maxiter=lih_config["optimizer_maxiter"],
+        rhobeg=lih_config["optimizer_rhobeg"],
+        tol=lih_config["optimizer_tol"],
+    )
     result = joint_optimize_diatomic_bond_length(
         atom1=lih_config["atom1"],
         atom2=lih_config["atom2"],
@@ -572,12 +600,15 @@ def run_hf_joint_optimization() -> dict[str, Any]:
         "reps": 2,
         "optimizer_maxiter": 100,
         "optimizer_rhobeg": 0.5,
+        "optimizer_tol": 1e-6,
         "seed": 42,
     }
 
     print("\n=== HF joint optimization ===")
     optimizer = COBYLA(
-        maxiter=hf_config["optimizer_maxiter"], rhobeg=hf_config["optimizer_rhobeg"]
+        maxiter=hf_config["optimizer_maxiter"],
+        rhobeg=hf_config["optimizer_rhobeg"],
+        tol=hf_config["optimizer_tol"],
     )
     result = joint_optimize_diatomic_bond_length(
         atom1=hf_config["atom1"],
@@ -653,6 +684,8 @@ def run_h2_bond_scan() -> dict[str, Any]:
         "entanglement": "linear",
         "reps": 2,
         "optimizer_maxiter": 150,
+        "optimizer_rhobeg": 1.0,
+        "optimizer_tol": 1e-6,
         "seed": 42,
         "distances": np.linspace(0.4, 1.0, 30),
     }
@@ -661,7 +694,11 @@ def run_h2_bond_scan() -> dict[str, Any]:
     distance_grid_label = (
         f"np.linspace({distances[0]:.3f}, {distances[-1]:.3f}, {len(distances)})"
     )
-    optimizer_builder = lambda: COBYLA(maxiter=h2_scan_config["optimizer_maxiter"])
+    optimizer_builder = lambda: COBYLA(
+        maxiter=h2_scan_config["optimizer_maxiter"],
+        rhobeg=h2_scan_config["optimizer_rhobeg"],
+        tol=h2_scan_config["optimizer_tol"],
+    )
 
     print("\n=== Bond scan for H2 ===")
     res = bond_scan_diatomic_vqe(
@@ -729,6 +766,8 @@ def run_lih_bond_scan() -> dict[str, Any]:
         "entanglement": "linear",
         "reps": 2,
         "optimizer_maxiter": 150,
+        "optimizer_rhobeg": 1.0,
+        "optimizer_tol": 1e-6,
         "seed": 42,
         "distances": np.linspace(1.1, 1.9, 30),
     }
@@ -737,7 +776,11 @@ def run_lih_bond_scan() -> dict[str, Any]:
     distance_grid_label = (
         f"np.linspace({distances[0]:.3f}, {distances[-1]:.3f}, {len(distances)})"
     )
-    optimizer_builder = lambda: COBYLA(maxiter=lih_scan_config["optimizer_maxiter"])
+    optimizer_builder = lambda: COBYLA(
+        maxiter=lih_scan_config["optimizer_maxiter"],
+        rhobeg=lih_scan_config["optimizer_rhobeg"],
+        tol=lih_scan_config["optimizer_tol"],
+    )
 
     print("\n=== Bond scan for LiH ===")
     res = bond_scan_diatomic_vqe(
@@ -805,6 +848,8 @@ def run_hf_bond_scan() -> dict[str, Any]:
         "entanglement": "linear",
         "reps": 2,
         "optimizer_maxiter": 150,
+        "optimizer_rhobeg": 1.0,
+        "optimizer_tol": 1e-6,
         "seed": 42,
         "distances": np.linspace(0.5, 1.8, 30),
     }
@@ -813,7 +858,11 @@ def run_hf_bond_scan() -> dict[str, Any]:
     distance_grid_label = (
         f"np.linspace({distances[0]:.3f}, {distances[-1]:.3f}, {len(distances)})"
     )
-    optimizer_builder = lambda: COBYLA(maxiter=hf_scan_config["optimizer_maxiter"])
+    optimizer_builder = lambda: COBYLA(
+        maxiter=hf_scan_config["optimizer_maxiter"],
+        rhobeg=hf_scan_config["optimizer_rhobeg"],
+        tol=hf_scan_config["optimizer_tol"],
+    )
 
     print("\n=== Bond scan for HF ===")
     res = bond_scan_diatomic_vqe(
@@ -868,7 +917,6 @@ def run_h2o_joint_optimization() -> Any:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
     backend = AerSimulator()
-    water_optimizer = COBYLA(maxiter=120)
 
     water_config = {
         "initial_r1": 1.0,
@@ -893,6 +941,8 @@ def run_h2o_joint_optimization() -> Any:
         "ansatz_type": "UCCSD",
         "reps": 1,
         "optimizer_maxiter": 120,
+        "optimizer_tol": 1e-6,
+        "optimizer_rhobeg": 1.0,
     }
 
     print("\n=== Joint optimization for H2O (r1, r2, angle) with UCCSD ===")
@@ -917,6 +967,12 @@ def run_h2o_joint_optimization() -> Any:
         seed=water_config["seed"],
         initial_theta=water_config["initial_theta"],
         verbose=water_config["verbose"],
+    )
+
+    water_optimizer = COBYLA(
+        maxiter=water_config["optimizer_maxiter"],
+        rhobeg=water_config["optimizer_rhobeg"],
+        tol=water_config["optimizer_tol"],
     )
 
     water_uccsd = joint_optimize_water_geometry(
