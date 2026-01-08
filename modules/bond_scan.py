@@ -179,7 +179,8 @@ def bond_scan_diatomic_vqe(
             p2 = float(noise_scale) * float(p2_base)
 
             noise_model.add_all_qubit_quantum_error(
-                depolarizing_error(p1, 1), ["x", "sx", "rx", "ry", "rz", "h", "s", "sdg"]
+                depolarizing_error(p1, 1),
+                ["x", "sx", "rx", "ry", "rz", "h", "s", "sdg"],
             )
             noise_model.add_all_qubit_quantum_error(
                 depolarizing_error(p2, 2), ["cx", "cz"]
@@ -190,7 +191,9 @@ def bond_scan_diatomic_vqe(
                 ro = ReadoutError([[1 - p, p], [p, 1 - p]])
                 noise_model.add_all_qubit_readout_error(ro)
 
-            sampler = SamplerV2(options={"backend_options": {"noise_model": noise_model}})
+            sampler = SamplerV2(
+                options={"backend_options": {"noise_model": noise_model}}
+            )
         else:
             sampler = SamplerV2()
 
