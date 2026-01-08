@@ -1,30 +1,17 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
-from qiskit_aer import AerSimulator
-from qiskit_aer.noise import NoiseModel, depolarizing_error
-from qiskit_aer.primitives import EstimatorV2
-from qiskit_algorithms.optimizers import COBYLA
-from qiskit_nature.second_q.mappers import JordanWignerMapper
-from qiskit_nature.units import DistanceUnit
 
-from modules.ansatz import build_uccsd_ansatz
+from typing import Any
+from pathlib import Path
+from qiskit_aer import AerSimulator
+from qiskit_aer.primitives import EstimatorV2
+from qiskit_aer.noise import NoiseModel, depolarizing_error
+from qiskit_algorithms.optimizers import COBYLA
+
 from modules.bond_scan import bond_scan_diatomic_vqe
-from modules.joint_optimization import (
-    joint_optimize_diatomic_bond_length,
-    joint_optimize_water_geometry,
-)
-from modules.molecule import MoleculeSpec, build_molecule_problem
-from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
-from modules.vqe import run_vqe_single_point
+from modules.joint_optimization import joint_optimize_diatomic_bond_length
 
 
 DATA_DIR = Path("data")
