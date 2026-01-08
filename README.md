@@ -1,13 +1,12 @@
-# Quantum Chemical Geometry Optimization with Qiskit
+# Quantum Chemical Bond Scan and Joint Geometry Optimization with Qiskit
 
 ## Required Packages
 
-Install the following Python packages:
+The following Python packages are required:
 
 - numpy
 - qiskit
 - qiskit-nature
 - qiskit-aqt-provider
 - pyscf
-- matplotlib
 - pylatexenc

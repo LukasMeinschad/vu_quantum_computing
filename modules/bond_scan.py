@@ -66,9 +66,7 @@ def bond_scan_diatomic_vqe(
     backend,
     optimization_level: int,
     seed: int,
-    warm_start: bool,
-    plot: bool,
-    images_dir: str | Path,
+    warm_start: bool
 ):
     """Run a VQE bond scan for a diatomic molecule.
 
@@ -129,8 +127,6 @@ def bond_scan_diatomic_vqe(
         - 'convergence': list of lists, each containing the energy trajectory
         - 'optimal_params': list of np.ndarray, final parameters for each distance
     """
-
-    images_dir = ensure_dir(images_dir)
 
     if backend is None:
         backend = AerSimulator()
@@ -220,55 +216,6 @@ def bond_scan_diatomic_vqe(
         print(
             f"[{i+1:02d}/{len(distances):02d}] d = {d:.6f} Å  ->  E = {e_final:.10f} Ha"
         )
-
-    if plot:
-        # 1) energy vs distance
-        plt.figure(figsize=(6, 4))
-        plt.plot(distances, scan_energies, marker="o")
-        plt.xlabel("Bond distance (Å)")
-        plt.ylabel("VQE energy (Ha)")
-        plt.title(
-            f"{atom1}{atom2} VQE bond scan ({basis}, {ansatz_method}, reps={reps}, {mapper})"
-        )
-        plt.grid(True)
-        plt.tight_layout()
-        out1 = (
-            images_dir
-            / f"bond_scan_{atom1}{atom2}_{basis}_{ansatz_method}_reps-{reps}_{mapper}.png"
-        )
-        plt.savefig(out1, dpi=200)
-        plt.close()
-
-        # 2) convergence per distance
-        plt.figure(figsize=(8, 6))
-        cmap = plt.cm.viridis
-        norm = plt.Normalize(
-            vmin=float(np.min(distances)), vmax=float(np.max(distances))
-        )
-
-        for d, energies in zip(distances, scan_convergence):
-            xs = range(len(energies))
-            plt.plot(xs, energies, color=cmap(norm(float(d))), linewidth=1.2)
-
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
-
-        plt.xlabel("Cost function evaluations")
-        plt.ylabel("VQE energy (Ha)")
-        plt.title(
-            f"VQE convergence per distance ({atom1}{atom2}, {ansatz_method}, reps={reps})"
-        )
-        ax = plt.gca()
-        cbar = plt.colorbar(sm, ax=ax)
-        cbar.set_label("Bond distance (Å)")
-        plt.grid(True)
-        plt.tight_layout()
-        out2 = (
-            images_dir
-            / f"bond_scan_convergence_{atom1}{atom2}_{basis}_{ansatz_method}_reps-{reps}_{mapper}.png"
-        )
-        plt.savefig(out2, dpi=200)
-        plt.close()
 
     return {
         "distances": distances,
