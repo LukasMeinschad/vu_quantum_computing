@@ -12,6 +12,7 @@ from qiskit_algorithms.optimizers import COBYLA
 
 from modules.bond_scan import bond_scan_diatomic_vqe
 from modules.joint_optimization import joint_optimize_diatomic_bond_length
+from modules.results_io import results_print
 
 
 DATA_DIR = Path("data")
@@ -85,7 +86,7 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         "seed": 42,
     }
 
-    print("\n=== H2 joint optimization ===")
+    results_print("\n=== H2 joint optimization ===")
     optimizer = COBYLA(
         maxiter=h2_config["optimizer_maxiter"],
         rhobeg=h2_config["optimizer_rhobeg"],
@@ -115,7 +116,7 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         verbose=True,
     )
 
-    print(
+    results_print(
         f"H2 optimum: d={result.optimal_distance:.6f} Å, E={result.optimal_energy:.10f} Ha"
     )
 
@@ -180,7 +181,7 @@ def run_h2_bond_scan() -> dict[str, Any]:
         tol=h2_scan_config["optimizer_tol"],
     )
 
-    print("\n=== Bond scan for H2 ===")
+    results_print("\n=== Bond scan for H2 ===")
     res = bond_scan_diatomic_vqe(
         atom1=h2_scan_config["atom1"],
         atom2=h2_scan_config["atom2"],
@@ -199,7 +200,7 @@ def run_h2_bond_scan() -> dict[str, Any]:
         backend=backend,
         optimization_level=0,
         seed=h2_scan_config["seed"],
-        warm_start=True
+        warm_start=True,
     )
 
     # Save data to file

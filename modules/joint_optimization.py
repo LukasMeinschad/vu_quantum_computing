@@ -37,6 +37,7 @@ from qiskit_nature.second_q.mappers import (
 )
 
 from modules.ansatz import build_ansatz
+from modules.results_io import results_print
 from modules.molecule import (
     MoleculeSpec,
     build_fermionic_hamiltonian,
@@ -327,7 +328,8 @@ def joint_optimize_diatomic_bond_length(
             msg = f"Eval {k:03d}: d={distance:.6f} {DistanceUnit.ANGSTROM.name}, E={raw_e:.10f} Ha"
             if distance_window is not None:
                 msg += f", cost={cost_e:.10f}"
-            print(msg)
+
+            results_print(msg)
 
         return cost_e
 

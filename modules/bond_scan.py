@@ -24,9 +24,9 @@ import numpy as np
 
 from qiskit_aer import AerSimulator
 from qiskit_algorithms.optimizers import COBYLA
-from qiskit_nature.units import DistanceUnit
 
 from modules.ansatz import build_ansatz
+from modules.results_io import results_print
 from modules.molecule import MoleculeSpec, build_molecule_problem
 from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
 from modules.vqe import run_vqe_single_point
@@ -56,7 +56,7 @@ def bond_scan_diatomic_vqe(
     backend,
     optimization_level: int,
     seed: int,
-    warm_start: bool
+    warm_start: bool,
 ):
     """Run a VQE bond scan for a diatomic molecule.
 
@@ -199,7 +199,7 @@ def bond_scan_diatomic_vqe(
         prev_params = scan_params[-1]
         prev_num_params = ansatz.num_parameters
 
-        print(
+        results_print(
             f"[{i+1:02d}/{len(distances):02d}] d = {d:.6f} Å  ->  E = {e_final:.10f} Ha"
         )
 

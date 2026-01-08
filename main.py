@@ -4,8 +4,10 @@ from modules.jobs import (
     run_h2_bond_scan,
     run_h2_joint_optimization,
 )
+from modules.results_io import redirect_stdout_to_results
 
 if __name__ == "__main__":
-    
-    run_h2_bond_scan()
-    run_h2_joint_optimization()
+
+    with redirect_stdout_to_results():
+        run_h2_bond_scan()
+        run_h2_joint_optimization()
