@@ -25,6 +25,30 @@ from qiskit_aer.primitives import EstimatorV2, SamplerV2
 from qiskit_algorithms.optimizers import COBYLA
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qiskit_algorithms import MinimumEigensolverResult
+from qiskit_aer.noise import NoiseModel, depolarizing_error
+
+
+def make_noisy_estimator(
+    *, scale: float, p1_base: float, p2_base: float
+) -> EstimatorV2:
+    """Create an EstimatorV2 configured with a scaled depolarizing noise model."""
+    noise_model = NoiseModel()
+    p1 = float(scale) * p1_base
+    p2 = float(scale) * p2_base
+
+    noise_model.add_all_qubit_quantum_error(
+        depolarizing_error(p1, 1), ["x", "sx", "rx", "ry", "rz"]
+    )
+    noise_model.add_all_qubit_quantum_error(depolarizing_error(p2, 2), ["cx", "cz"])
+
+    return EstimatorV2(
+        options={
+            "backend_options": {
+                "method": "density_matrix",
+                "noise_model": noise_model,
+            }
+        }
+    )
 
 
 def _build_measurement_circuit_for_pauli(base_circuit: Any, pauli_label: str) -> Any:
@@ -252,7 +276,7 @@ def run_vqe_single_point(
 
     # Default primitives: use shot-based sampler if provided, else estimator.
     if sampler is None and estimator is None:
-        estimator = EstimatorV2()
+        estimator = make_noisy_estimator(scale=0.2, p1_base=0.001, p2_base=0.01)
     if sampler is None and shots is not None:
         raise ValueError("shots was set but sampler=None; provide sampler=SamplerV2()")
     if sampler is None and estimator is None:

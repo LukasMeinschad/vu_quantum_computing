@@ -41,7 +41,6 @@ from qiskit_nature.second_q.mappers import (
     BravyiKitaevMapper,
 )
 
-
 def ensure_dir(path: str | Path) -> Path:
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)

@@ -24,7 +24,7 @@ from modules.joint_optimization import (
 )
 from modules.molecule import MoleculeSpec, build_molecule_problem
 from modules.qubit_hamiltonian import map_to_qubit_hamiltonian
-from modules.vqe import run_vqe_single_point
+from modules.vqe import run_vqe_single_point, make_noisy_estimator
 
 
 IMAGES_DIR = Path("images")
@@ -48,29 +48,6 @@ def optimizer_metadata(optimizer_or_builder: Any) -> dict[str, Any]:
     if isinstance(settings, dict):
         metadata["settings"] = {str(k): json_safe(v) for k, v in settings.items()}
     return metadata
-
-
-def make_noisy_estimator(
-    *, scale: float, p1_base: float, p2_base: float
-) -> EstimatorV2:
-    """Create an EstimatorV2 configured with a scaled depolarizing noise model."""
-    noise_model = NoiseModel()
-    p1 = float(scale) * p1_base
-    p2 = float(scale) * p2_base
-
-    noise_model.add_all_qubit_quantum_error(
-        depolarizing_error(p1, 1), ["x", "sx", "rx", "ry", "rz"]
-    )
-    noise_model.add_all_qubit_quantum_error(depolarizing_error(p2, 2), ["cx", "cz"])
-
-    return EstimatorV2(
-        options={
-            "backend_options": {
-                "method": "density_matrix",
-                "noise_model": noise_model,
-            }
-        }
-    )
 
 
 def run_h2_noise_benchmark() -> dict[str, Any]:
@@ -769,7 +746,7 @@ def run_lih_bond_scan() -> dict[str, Any]:
         "optimizer_rhobeg": 1.0,
         "optimizer_tol": 1e-6,
         "seed": 42,
-        "distances": np.linspace(1.1, 1.9, 30),
+        "distances": np.linspace(1.4, 1.9, 10),
     }
 
     distances = lih_scan_config["distances"]

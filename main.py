@@ -20,8 +20,8 @@ if __name__ == "__main__":
     # run_h2_joint_comparison()
     
     # Bond scans
-    run_h2_bond_scan()
-    # run_lih_bond_scan()
+    # run_h2_bond_scan()
+    run_lih_bond_scan()
     # run_hf_bond_scan()
     
     # Joint optimizations
