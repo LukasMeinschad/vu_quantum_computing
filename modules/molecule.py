@@ -2,7 +2,6 @@
 Molecule utilities.
 
 This module provides helpers to:
-- read an .xyz file and convert it into a PySCF-compatible atom string
 - build a Qiskit Nature ElectronicStructureProblem via PySCFDriver
 - optionally apply Freeze-Core and/or Active-Space reductions
 - extract the second-quantized (fermionic) Hamiltonian
@@ -10,18 +9,17 @@ This module provides helpers to:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Iterable
-
 import numpy as np
+
+from typing import Any
+from dataclasses import dataclass
+from qiskit_nature.units import DistanceUnit
 from qiskit_nature.second_q.drivers import PySCFDriver
 from qiskit_nature.second_q.formats.molecule_info import MoleculeInfo
 from qiskit_nature.second_q.transformers import (
     ActiveSpaceTransformer,
     FreezeCoreTransformer,
 )
-from qiskit_nature.units import DistanceUnit
 
 
 @dataclass(frozen=True)
@@ -46,50 +44,6 @@ class MoleculeSpec:
     charge: int
     spin: int
     driver_kwargs: dict[str, Any] | None = None
-
-
-def xyz_file_to_pyscf_atom_string(xyz_path: str | Path) -> str:
-    """
-    Read an .xyz file and convert it into a PySCF-compatible atom string.
-
-    The XYZ format is expected as:
-        line 1: number of atoms
-        line 2: comment
-        next N lines: "Element x y z [ignored extras...]"
-
-    Returns
-    -------
-    str
-        PySCF atom string: "H 0 0 0; H 0 0 0.74"
-    """
-    path = Path(xyz_path)
-    lines = [ln.strip() for ln in path.read_text().splitlines() if ln.strip()]
-    if len(lines) < 3:
-        raise ValueError(f"XYZ file too short: {path}")
-
-    try:
-        n = int(lines[0])
-    except ValueError as exc:
-        raise ValueError(
-            f"First line must be the atom count, got: {lines[0]!r}"
-        ) from exc
-
-    body = lines[2 : 2 + n]
-    if len(body) != n:
-        raise ValueError(
-            f"XYZ declares {n} atoms but contains {len(body)} coordinate lines."
-        )
-
-    atoms: list[str] = []
-    for ln in body:
-        parts = ln.split()
-        if len(parts) < 4:
-            raise ValueError(f"Invalid XYZ line (need 'El x y z'): {ln!r}")
-        sym = parts[0]
-        x, y, z = map(float, parts[1:4])
-        atoms.append(f"{sym} {x} {y} {z}")
-
-    return "; ".join(atoms)
 
 
 def to_pyscf_atom_string(molecule: str | MoleculeInfo) -> str:

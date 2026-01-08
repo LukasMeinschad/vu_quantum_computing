@@ -90,7 +90,7 @@ def run_vqe_single_point(
 	store_energies: bool = True,
 	verbose: bool = False,
 ) -> SinglePointVQEResult:
-	"""Run VQE for a single fixed point (no plotting).
+	"""Run VQE for a single fixed point.
 
 	Notes
 	-----

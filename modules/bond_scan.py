@@ -21,10 +21,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from qiskit_aer import AerSimulator
 from qiskit_algorithms.optimizers import COBYLA
@@ -39,12 +35,6 @@ from qiskit_nature.second_q.mappers import (
     ParityMapper,
     BravyiKitaevMapper,
 )
-
-
-def ensure_dir(path: str | Path) -> Path:
-    p = Path(path)
-    p.mkdir(parents=True, exist_ok=True)
-    return p
 
 
 def bond_scan_diatomic_vqe(
@@ -113,10 +103,6 @@ def bond_scan_diatomic_vqe(
         Random seed for initial parameters (ignored when warm-starting).
     warm_start : bool
         If True, initialize each geometry with the previous optimal parameters.
-    plot : bool
-        If True, save energy and convergence plots to images_dir.
-    images_dir : str | Path
-        Directory for saving plots.
 
     Returns
     -------
