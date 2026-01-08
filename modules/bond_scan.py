@@ -27,6 +27,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from qiskit_aer import AerSimulator
+from qiskit_aer.primitives import SamplerV2
 from qiskit_algorithms.optimizers import COBYLA
 from qiskit_nature.units import DistanceUnit
 
@@ -69,6 +70,13 @@ def bond_scan_diatomic_vqe(
     warm_start: bool,
     plot: bool,
     images_dir: str | Path,
+    use_sampler: bool = True,
+    shots: int = 1000,
+    noisy_sampler: bool = True,
+    noise_scale: float = 1.0,
+    p1_base: float = 0.001,
+    p2_base: float = 0.01,
+    readout_error: float = 0.0,
 ):
     """Run a VQE bond scan for a diatomic molecule.
 
@@ -119,6 +127,20 @@ def bond_scan_diatomic_vqe(
         If True, save energy and convergence plots to images_dir.
     images_dir : str | Path
         Directory for saving plots.
+    use_sampler : bool
+        If True, evaluates energies via `SamplerV2` with finite shots.
+    shots : int
+        Number of shots per Pauli term measurement when `use_sampler=True`.
+    noisy_sampler : bool
+        If True (and `use_sampler=True`), runs the sampler with an Aer noise model.
+    noise_scale : float
+        Multiplier applied to base noise probabilities.
+    p1_base : float
+        Base 1-qubit depolarizing probability (scaled by `noise_scale`).
+    p2_base : float
+        Base 2-qubit depolarizing probability (scaled by `noise_scale`).
+    readout_error : float
+        Symmetric bit-flip readout error probability per qubit (0 disables).
 
     Returns
     -------
@@ -143,6 +165,34 @@ def bond_scan_diatomic_vqe(
     scan_energies: list[float] = []
     scan_convergence: list[list[float]] = []
     scan_params: list[np.ndarray] = []
+
+    sampler = None
+    if use_sampler:
+        if int(shots) <= 0:
+            raise ValueError("shots must be a positive integer")
+
+        if noisy_sampler:
+            from qiskit_aer.noise import NoiseModel, ReadoutError, depolarizing_error
+
+            noise_model = NoiseModel()
+            p1 = float(noise_scale) * float(p1_base)
+            p2 = float(noise_scale) * float(p2_base)
+
+            noise_model.add_all_qubit_quantum_error(
+                depolarizing_error(p1, 1), ["x", "sx", "rx", "ry", "rz", "h", "s", "sdg"]
+            )
+            noise_model.add_all_qubit_quantum_error(
+                depolarizing_error(p2, 2), ["cx", "cz"]
+            )
+
+            if float(readout_error) > 0.0:
+                p = float(readout_error)
+                ro = ReadoutError([[1 - p, p], [p, 1 - p]])
+                noise_model.add_all_qubit_readout_error(ro)
+
+            sampler = SamplerV2(options={"backend_options": {"noise_model": noise_model}})
+        else:
+            sampler = SamplerV2()
 
     prev_params = None
     prev_num_params = None
@@ -207,6 +257,8 @@ def bond_scan_diatomic_vqe(
             optimization_level=optimization_level,
             seed=seed if init is None else None,
             verbose=False,
+            sampler=sampler,
+            shots=int(shots) if use_sampler else None,
         )
 
         e_final = float(run.result.fun)

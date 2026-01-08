@@ -687,7 +687,7 @@ def run_h2_bond_scan() -> dict[str, Any]:
         "optimizer_rhobeg": 1.0,
         "optimizer_tol": 1e-6,
         "seed": 42,
-        "distances": np.linspace(0.4, 1.0, 30),
+        "distances": np.linspace(0.5, 1.0, 10),
     }
 
     distances = h2_scan_config["distances"]
