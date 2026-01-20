@@ -69,7 +69,7 @@ def bond_scan_diatomic_vqe(
     warm_start: bool,
     plot: bool,
     images_dir: str | Path,
-    use_sampler: bool = True,
+    use_sampler: bool = False,
     shots: int = 1000,
     noisy_sampler: bool = True,
     noise_scale: float = 1.0,
