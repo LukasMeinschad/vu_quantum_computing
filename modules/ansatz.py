@@ -133,7 +133,12 @@ def build_uccsd_ansatz(
     if ctor_accepts_kwarg(UCCSD, "reps"):
         kwargs["reps"] = reps
 
-    return UCCSD(**kwargs)
+    ansatz = UCCSD(**kwargs)
+
+    # fig = ansatz.decompose().draw(output="mpl", fold=-1, style="iqp")
+    # fig.savefig("ansatz-uccsd.png", dpi=300, bbox_inches="tight")
+
+    return ansatz
 
 
 def build_ansatz(
