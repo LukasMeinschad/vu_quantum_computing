@@ -465,21 +465,21 @@ def run_h2_joint_optimization() -> dict[str, Any]:
 
     return result
 
-def run_h2_convergence_benchmark() -> dict[str, Any]:
+def run_convergence_benchmark() -> dict[str, Any]:
 
     # Settings
-    atom1 = "H"
+    atom1 = "Li"
     atom2 = "H"
-    distance = 0.74
+    distance = 1.6
     basis = "sto3g"
     charge = 0
     spin = 0
     freeze_core = False
     active_space = (2, 2)
     mapper = "JordanWigner"
-    ansatz_method = "UCCSD"
+    ansatz_method = "EfficientSU2"
     entanglement = "linear"
-    reps = 5
+    reps = 2
     optimization_level = 3
     seed = 42
     use_sampler = False
@@ -489,7 +489,7 @@ def run_h2_convergence_benchmark() -> dict[str, Any]:
     p1_base = 0.001
     p2_base = 0.01
     readout_error = 0.0
-    data_file_name = "vqe_conv_uccsd_jw_5.json"
+    data_file_name = "vqe_conv_efficientSU2_jw_2_lih.json"
     
     from qiskit_aer.primitives import SamplerV2
     from modules.ansatz import build_ansatz
