@@ -501,7 +501,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
 
 
     backend = AerSimulator()
-    optimizer_builder = lambda: COBYLA(maxiter=300)
+    optimizer_builder = lambda: COBYLA(maxiter=3000)
 
 
     sampler = None
