@@ -465,6 +465,175 @@ def run_h2_joint_optimization() -> dict[str, Any]:
 
     return result
 
+def run_h2_convergence_benchmark() -> dict[str, Any]:
+
+    # Settings
+    atom1 = "H"
+    atom2 = "H"
+    distance = 0.74
+    basis = "sto3g"
+    charge = 0
+    spin = 0
+    freeze_core = False
+    active_space = (2, 2)
+    mapper = "JordanWigner"
+    ansatz_method = "UCCSD"
+    entanglement = "linear"
+    reps = 1
+    optimization_level = 0
+    seed = 42
+    use_sampler = False
+    noisy_sampler = False
+    shots = 1024
+    noise_scale = 1.0
+    p1_base = 0.001
+    p2_base = 0.01
+    readout_error = 0.0
+    
+    from qiskit_aer.primitives import SamplerV2
+    from modules.ansatz import build_ansatz
+    from qiskit_nature.second_q.mappers import (
+        JordanWignerMapper,
+        ParityMapper,
+        BravyiKitaevMapper,
+    )
+
+
+    backend = AerSimulator()
+    optimizer_builder = lambda: COBYLA(maxiter=500)
+
+
+    sampler = None
+    if use_sampler:
+        if int(shots) <= 0:
+            raise ValueError("shots must be a positive integer")
+
+        if noisy_sampler:
+            from qiskit_aer.noise import NoiseModel, ReadoutError, depolarizing_error
+
+            noise_model = NoiseModel()
+            p1 = float(noise_scale) * float(p1_base)
+            p2 = float(noise_scale) * float(p2_base)
+
+            noise_model.add_all_qubit_quantum_error(
+                depolarizing_error(p1, 1),
+                ["x", "sx", "rx", "ry", "rz", "h", "s", "sdg"],
+            )
+            noise_model.add_all_qubit_quantum_error(
+                depolarizing_error(p2, 2), ["cx", "cz"]
+            )
+
+            if float(readout_error) > 0.0:
+                p = float(readout_error)
+                ro = ReadoutError([[1 - p, p], [p, 1 - p]])
+                noise_model.add_all_qubit_readout_error(ro)
+
+            sampler = SamplerV2(
+                options={"backend_options": {"noise_model": noise_model}}
+            )
+        else:
+            sampler = SamplerV2()
+
+    atom_str = f"{atom1} 0.0 0.0 0.0; {atom2} 0.0 0.0 {float(distance)}"
+
+    spec = MoleculeSpec(
+        atom=atom_str,
+        basis=basis,
+        charge=charge,
+        spin=spin,
+    )
+
+    problem_used = build_molecule_problem(
+        spec,
+        freeze_core=freeze_core,
+        active_space=active_space,
+        sanitize_active_space_flag=True,
+    )
+
+    qubit_hamiltonian = map_to_qubit_hamiltonian(problem_used, mapper=mapper)
+
+    if ansatz_method in ("EfficientSU2", "TwoLocal", "RealAmplitudes"):
+        ansatz = build_ansatz(
+            ansatz_method,
+            num_qubits=qubit_hamiltonian.num_qubits,
+            reps=reps,
+            entanglement=entanglement,
+        )
+    else:
+        if mapper == "JordanWigner":
+            qubit_mapper = JordanWignerMapper()
+        elif mapper == "BravyiKitaev":
+            qubit_mapper = BravyiKitaevMapper()
+        elif mapper == "Parity":
+            qubit_mapper = ParityMapper(num_particles=problem_used.num_particles)
+        else:
+            raise ValueError(f"Unsupported mapper: {mapper}")
+
+        ansatz = build_ansatz(
+            ansatz_method,
+            problem=problem_used,
+            qubit_mapper=qubit_mapper,
+            reps=reps,
+        )
+
+    run = run_vqe_single_point(
+        problem=problem_used,
+        qubit_hamiltonian=qubit_hamiltonian,
+        ansatz=ansatz,
+        optimizer=optimizer_builder(),
+        initial_params=None,
+        backend=backend,
+        optimization_level=optimization_level,
+        seed=seed,
+        verbose=False,
+        sampler=sampler,
+        shots=int(shots) if use_sampler else None,
+    )
+    
+    convergence: list[list[float]] = []
+    convergence.append(list(run.energies))
+
+    # Save data to file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data_to_save = {
+        "final_energy": float(run.result.fun),
+        "convergence": [[float(e) for e in run.energies]],
+        "num_evaluations": len(run.energies),
+        "metadata": {
+            "molecule": f"{atom1}-{atom2}",
+            "distance": float(distance),
+            "basis": basis,
+            "charge": charge,
+            "spin": spin,
+            "mapper": mapper,
+            "ansatz": ansatz_method,
+            "reps": reps,
+            "entanglement": entanglement,
+            "optimizer": optimizer_metadata(optimizer_builder),
+            "active_space": active_space,
+            "freeze_core": freeze_core,
+            "backend": "AerSimulator",
+            "optimization_level": optimization_level,
+            "seed": seed,
+            "use_sampler": use_sampler,
+            "noisy_sampler": noisy_sampler,
+            "shots": int(shots) if use_sampler else None,
+            "noise_scale": float(noise_scale) if noisy_sampler else None,
+            "p1_base": float(p1_base) if noisy_sampler else None,
+            "p2_base": float(p2_base) if noisy_sampler else None,
+            "readout_error": float(readout_error) if noisy_sampler else None,
+        },
+    }
+    with open(DATA_DIR / "h2_convergence_benchmark.json", "w") as f:
+        json.dump(data_to_save, f, indent=2)
+    
+    print(f"\nData saved to {DATA_DIR / 'h2_convergence_benchmark.json'}")
+    
+    return {
+        "run": run,
+        "convergence": convergence,
+        "final_energy": run.result.fun,
+    }
 
 def run_lih_joint_optimization() -> dict[str, Any]:
     """Run LiH joint optimization with EfficientSU2."""
