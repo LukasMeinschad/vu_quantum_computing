@@ -628,7 +628,7 @@ def run_h2_convergence_benchmark() -> dict[str, Any]:
     with open(DATA_DIR / data_file_name, "w") as f:
         json.dump(data_to_save, f, indent=2)
     
-    print(f"\nData saved to {DATA_DIR / 'h2_convergence_benchmark.json'}")
+    print(f"\nData saved to {DATA_DIR / data_file_name}")
     
     return {
         "run": run,
