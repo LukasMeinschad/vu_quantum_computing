@@ -387,7 +387,7 @@ def run_h2_joint_optimization() -> dict[str, Any]:
     h2_config = {
         "atom1": "H",
         "atom2": "H",
-        "initial_distance": 0.74,
+        "initial_distance": 1.0,
         "distance_window": (0.4, 2.0),
         "penalty_strength": 100.0,
         "basis": "sto3g",
@@ -398,10 +398,10 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         "mapper": "JordanWigner",
         "ansatz_type": "UCCSD",
         "entanglement": "linear",
-        "reps": 2,
+        "reps": 1,
         "optimizer_maxiter": 80,
-        "optimizer_rhobeg": 1.0,
-        "optimizer_tol": 1e-6,
+        "optimizer_rhobeg": 0.5,
+        "optimizer_tol": 1e-5,
         "seed": 42,
     }
 
@@ -829,12 +829,12 @@ def run_h2_bond_scan() -> dict[str, Any]:
         "mapper": "JordanWigner",
         "ansatz_method": "UCCSD",
         "entanglement": "linear",
-        "reps": 5,
+        "reps": 1,
         "optimizer_maxiter": 150,
         "optimizer_rhobeg": 1.0,
-        "optimizer_tol": 1e-6,
+        "optimizer_tol": 1e-5,
         "seed": 42,
-        "distances": np.linspace(0.5, 1.0, 10),
+        "distances": np.linspace(0.25, 2.2, 80),
     }
 
     distances = h2_scan_config["distances"]
