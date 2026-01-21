@@ -19,10 +19,10 @@ if __name__ == "__main__":
     # Comparisons
     # run_h2_noise_benchmark()
     # run_h2_joint_comparison()
-    run_convergence_benchmark()
+    # run_convergence_benchmark()
     
     # Bond scans
-    # run_h2_bond_scan()
+    run_h2_bond_scan()
     # run_lih_bond_scan()
     # run_hf_bond_scan()
     

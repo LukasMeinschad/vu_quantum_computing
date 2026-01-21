@@ -827,7 +827,7 @@ def run_h2_bond_scan() -> dict[str, Any]:
         "freeze_core": False,
         "active_space": (2, 2),
         "mapper": "JordanWigner",
-        "ansatz_method": "EfficientSU2",
+        "ansatz_method": "UCCSD",
         "entanglement": "linear",
         "reps": 5,
         "optimizer_maxiter": 150,
