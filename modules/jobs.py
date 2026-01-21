@@ -470,14 +470,14 @@ def run_convergence_benchmark() -> dict[str, Any]:
     # Settings
     atom1 = "H"
     atom2 = "H"
-    distance = 1.6
+    distance = 0.74
     basis = "sto3g"
     charge = 0
     spin = 0
     freeze_core = False
     active_space = (2, 2)
     mapper = "JordanWigner"
-    ansatz_method = "EfficientSU2"
+    ansatz_method = "UCCSD"
     entanglement = "linear"
     reps = 2
     optimization_level = 3
@@ -489,7 +489,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
     p1_base = 0.001
     p2_base = 0.01
     readout_error = 0.0
-    data_file_name = "vqe_conv_efficientSU2_jw_2.json"
+    data_file_name = "vqe_conv_uccsd_jw_2.json"
     
     from qiskit_aer.primitives import SamplerV2
     from modules.ansatz import build_ansatz
@@ -501,7 +501,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
 
 
     backend = AerSimulator()
-    optimizer_builder = lambda: COBYLA(maxiter=3000)
+    optimizer_builder = lambda: COBYLA(maxiter=10000, tol=1e-4)
 
 
     sampler = None
