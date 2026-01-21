@@ -479,7 +479,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
     mapper = "JordanWigner"
     ansatz_method = "UCCSD"
     entanglement = "linear"
-    reps = 2
+    reps = 5
     optimization_level = 3
     seed = 42
     use_sampler = False
@@ -489,7 +489,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
     p1_base = 0.001
     p2_base = 0.01
     readout_error = 0.0
-    data_file_name = "vqe_conv_uccsd_jw_2.json"
+    data_file_name = "vqe_conv_uccsd_jw_5.json"
     
     from qiskit_aer.primitives import SamplerV2
     from modules.ansatz import build_ansatz
