@@ -479,8 +479,8 @@ def run_h2_convergence_benchmark() -> dict[str, Any]:
     mapper = "JordanWigner"
     ansatz_method = "UCCSD"
     entanglement = "linear"
-    reps = 1
-    optimization_level = 0
+    reps = 5
+    optimization_level = 3
     seed = 42
     use_sampler = False
     noisy_sampler = False
@@ -489,6 +489,7 @@ def run_h2_convergence_benchmark() -> dict[str, Any]:
     p1_base = 0.001
     p2_base = 0.01
     readout_error = 0.0
+    data_file_name = "vqe_conv_uccsd_jw_5.json"
     
     from qiskit_aer.primitives import SamplerV2
     from modules.ansatz import build_ansatz
@@ -624,7 +625,7 @@ def run_h2_convergence_benchmark() -> dict[str, Any]:
             "readout_error": float(readout_error) if noisy_sampler else None,
         },
     }
-    with open(DATA_DIR / "h2_convergence_benchmark.json", "w") as f:
+    with open(DATA_DIR / data_file_name, "w") as f:
         json.dump(data_to_save, f, indent=2)
     
     print(f"\nData saved to {DATA_DIR / 'h2_convergence_benchmark.json'}")
