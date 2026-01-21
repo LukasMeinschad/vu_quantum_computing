@@ -468,7 +468,7 @@ def run_h2_joint_optimization() -> dict[str, Any]:
 def run_convergence_benchmark() -> dict[str, Any]:
 
     # Settings
-    atom1 = "Li"
+    atom1 = "H"
     atom2 = "H"
     distance = 1.6
     basis = "sto3g"
@@ -489,7 +489,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
     p1_base = 0.001
     p2_base = 0.01
     readout_error = 0.0
-    data_file_name = "vqe_conv_efficientSU2_jw_2_lih.json"
+    data_file_name = "vqe_conv_efficientSU2_jw_2.json"
     
     from qiskit_aer.primitives import SamplerV2
     from modules.ansatz import build_ansatz
@@ -501,7 +501,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
 
 
     backend = AerSimulator()
-    optimizer_builder = lambda: COBYLA(maxiter=500)
+    optimizer_builder = lambda: COBYLA(maxiter=300)
 
 
     sampler = None

@@ -274,6 +274,11 @@ def run_vqe_single_point(
     isa_ansatz = pm.run(ansatz)
     isa_observables = qubit_hamiltonian.apply_layout(isa_ansatz.layout)
 
+    ########################################################################
+    ### HARDCODED DEFAULT ESTIMATOR FOR COMPARISON PLOTS IN PRESENTATION ###
+    ########################################################################
+    estimator = EstimatorV2()
+
     # Default primitives: use shot-based sampler if provided, else estimator.
     if sampler is None and estimator is None:
         estimator = make_noisy_estimator(scale=0.2, p1_base=0.001, p2_base=0.01)
