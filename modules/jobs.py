@@ -399,9 +399,9 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         "ansatz_type": "UCCSD",
         "entanglement": "linear",
         "reps": 1,
-        "optimizer_maxiter": 80,
+        "optimizer_maxiter": 300,
         "optimizer_rhobeg": 0.5,
-        "optimizer_tol": 1e-5,
+        "optimizer_tol": 1e-4,
         "seed": 42,
     }
 
