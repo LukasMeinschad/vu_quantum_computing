@@ -379,7 +379,7 @@ def run_h2_joint_comparison() -> dict[str, Any]:
 
 
 def run_h2_joint_optimization() -> dict[str, Any]:
-    """Run H2 joint optimization with EfficientSU2."""
+    """Run H2 joint optimization with UCCSD and optional noise."""
 
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     backend = AerSimulator()
@@ -403,9 +403,76 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         "optimizer_rhobeg": 0.5,
         "optimizer_tol": 1e-4,
         "seed": 42,
+        "use_sampler": True,  # Set to True for shot-based simulation
+        "shots": 10000,
+        "noisy_sampler": True,
+        "noise_scale": 1.0,
+        "p1_base": 0.001,
+        "p2_base": 0.01,
+        "readout_error": 0.0,
     }
 
     print("\n=== H2 joint optimization ===")
+
+    # Create sampler or estimator based on config
+    sampler = None
+    estimator = None
+    shots = None
+
+    if h2_config["use_sampler"]:
+        # Sampler mode (shot-based)
+        from qiskit_aer.primitives import SamplerV2
+        from qiskit_aer.noise import NoiseModel, ReadoutError, depolarizing_error
+
+        shots = int(h2_config["shots"])
+
+        if h2_config["noisy_sampler"]:
+            noise_model = NoiseModel()
+            p1 = float(h2_config["noise_scale"]) * float(h2_config["p1_base"])
+            p2 = float(h2_config["noise_scale"]) * float(h2_config["p2_base"])
+
+            noise_model.add_all_qubit_quantum_error(
+                depolarizing_error(p1, 1),
+                ["x", "sx", "rx", "ry", "rz", "h", "s", "sdg"],
+            )
+            noise_model.add_all_qubit_quantum_error(
+                depolarizing_error(p2, 2), ["cx", "cz"]
+            )
+
+            if float(h2_config["readout_error"]) > 0.0:
+                p = float(h2_config["readout_error"])
+                ro = ReadoutError([[1 - p, p], [p, 1 - p]])
+                noise_model.add_all_qubit_readout_error(ro)
+
+            sampler = SamplerV2(
+                options={"backend_options": {"noise_model": noise_model}}
+            )
+            print(
+                f"Using noisy sampler: shots={shots}, scale={h2_config['noise_scale']}, "
+                f"p1={p1:.4f}, p2={p2:.4f}, readout_error={h2_config['readout_error']}"
+            )
+        else:
+            sampler = SamplerV2()
+            print(f"Using ideal sampler: shots={shots}")
+    else:
+        # Estimator mode (exact or density matrix with noise)
+        from qiskit_aer.primitives import EstimatorV2
+
+        if h2_config["noisy_sampler"]:  # Use noise config for estimator too
+            estimator = make_noisy_estimator(
+                scale=h2_config["noise_scale"],
+                p1_base=h2_config["p1_base"],
+                p2_base=h2_config["p2_base"],
+            )
+            print(
+                f"Using noisy estimator: scale={h2_config['noise_scale']}, "
+                f"p1={h2_config['noise_scale']*h2_config['p1_base']:.4f}, "
+                f"p2={h2_config['noise_scale']*h2_config['p2_base']:.4f}"
+            )
+        else:
+            estimator = EstimatorV2()
+            print("Using ideal estimator")
+
     optimizer = COBYLA(
         maxiter=h2_config["optimizer_maxiter"],
         rhobeg=h2_config["optimizer_rhobeg"],
@@ -433,6 +500,9 @@ def run_h2_joint_optimization() -> dict[str, Any]:
         seed=h2_config["seed"],
         initial_theta=None,
         verbose=True,
+        estimator=estimator,
+        sampler=sampler,
+        shots=shots,
     )
 
     print(
@@ -458,12 +528,28 @@ def run_h2_joint_optimization() -> dict[str, Any]:
             "penalty_strength": h2_config["penalty_strength"],
             "distance_window": h2_config["distance_window"],
             "seed": h2_config["seed"],
+            "use_sampler": h2_config["use_sampler"],
+            "shots": int(h2_config["shots"]) if h2_config["use_sampler"] else None,
+            "noisy_sampler": (
+                h2_config["noisy_sampler"] if h2_config["use_sampler"] else None
+            ),
+            "noise_scale": (
+                h2_config["noise_scale"] if h2_config["noisy_sampler"] else None
+            ),
+            "p1_base": h2_config["p1_base"] if h2_config["noisy_sampler"] else None,
+            "p2_base": h2_config["p2_base"] if h2_config["noisy_sampler"] else None,
+            "readout_error": (
+                h2_config["readout_error"]
+                if h2_config.get("readout_error") and h2_config["noisy_sampler"]
+                else None
+            ),
         },
     }
     with open(DATA_DIR / "h2_joint_optimization.json", "w") as f:
         json.dump(data_to_save, f, indent=2)
 
     return result
+
 
 def run_convergence_benchmark() -> dict[str, Any]:
 
@@ -490,7 +576,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
     p2_base = 0.01
     readout_error = 0.0
     data_file_name = "vqe_conv_uccsd_jw_5.json"
-    
+
     from qiskit_aer.primitives import SamplerV2
     from modules.ansatz import build_ansatz
     from qiskit_nature.second_q.mappers import (
@@ -499,10 +585,8 @@ def run_convergence_benchmark() -> dict[str, Any]:
         BravyiKitaevMapper,
     )
 
-
     backend = AerSimulator()
     optimizer_builder = lambda: COBYLA(maxiter=10000, tol=1e-4)
-
 
     sampler = None
     if use_sampler:
@@ -590,7 +674,7 @@ def run_convergence_benchmark() -> dict[str, Any]:
         sampler=sampler,
         shots=int(shots) if use_sampler else None,
     )
-    
+
     convergence: list[list[float]] = []
     convergence.append(list(run.energies))
 
@@ -627,14 +711,15 @@ def run_convergence_benchmark() -> dict[str, Any]:
     }
     with open(DATA_DIR / data_file_name, "w") as f:
         json.dump(data_to_save, f, indent=2)
-    
+
     print(f"\nData saved to {DATA_DIR / data_file_name}")
-    
+
     return {
         "run": run,
         "convergence": convergence,
         "final_energy": run.result.fun,
     }
+
 
 def run_lih_joint_optimization() -> dict[str, Any]:
     """Run LiH joint optimization with EfficientSU2."""

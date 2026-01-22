@@ -178,6 +178,9 @@ def joint_optimize_diatomic_bond_length(
     seed: Optional[int],
     initial_theta: Optional[np.ndarray],
     verbose: bool,
+    estimator: Optional[Any] = None,
+    sampler: Optional[Any] = None,
+    shots: Optional[int] = None,
 ) -> JointOptimizationResult:
     """Jointly optimize diatomic bond distance and variational ansatz parameters.
 
@@ -308,7 +311,19 @@ def joint_optimize_diatomic_bond_length(
     )
     isa_ansatz = pm.run(ansatz)
 
-    estimator = EstimatorV2()
+    # Handle estimator vs sampler modes
+    if sampler is None and estimator is None:
+        estimator = EstimatorV2()
+    if sampler is not None and shots is None:
+        raise ValueError("sampler provided but shots is None; must specify shots")
+    if sampler is not None and estimator is not None:
+        raise ValueError("Cannot use both estimator and sampler; choose one")
+
+    use_sampler_mode = sampler is not None
+
+    # Pre-build measurement circuits for sampler mode
+    measurement_circuits_cache = {}
+    pauli_labels_cache = {}
 
     num_theta = int(getattr(isa_ansatz, "num_parameters", 0))
 
@@ -360,8 +375,37 @@ def joint_optimize_diatomic_bond_length(
             )
 
         isa_observables = qubit_op.apply_layout(isa_ansatz.layout)
-        job = estimator.run([(isa_ansatz, isa_observables, theta)])
-        exp_val = job.result()[0].data.evs
+
+        if use_sampler_mode:
+            # Sampler-based evaluation with shots
+            from modules.vqe import (
+                _estimate_sparsepauliop_expectation_with_sampler,
+                _build_measurement_circuit_for_pauli,
+            )
+
+            # Cache measurement circuits per distance
+            if distance not in measurement_circuits_cache:
+                labels = list(isa_observables.paulis.to_labels())
+                measurement_circuits_cache[distance] = [
+                    _build_measurement_circuit_for_pauli(isa_ansatz, lab)
+                    for lab in labels
+                ]
+                pauli_labels_cache[distance] = labels
+
+            exp_val = _estimate_sparsepauliop_expectation_with_sampler(
+                sampler=sampler,
+                base_circuit=isa_ansatz,
+                params=theta,
+                operator=isa_observables,
+                shots=shots,
+                measurement_circuits=measurement_circuits_cache[distance],
+                pauli_labels=pauli_labels_cache[distance],
+            )
+        else:
+            # Estimator-based evaluation (exact or density matrix with noise)
+            job = estimator.run([(isa_ansatz, isa_observables, theta)])
+            exp_val = job.result()[0].data.evs
+
         return float(interpret_expectation_value(exp_val, problem))
 
     def _penalty(distance: float) -> float:
