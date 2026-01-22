@@ -1,0 +1,40 @@
+{
+  "distances": [
+    0.54,
+    0.64,
+    0.74,
+    0.84,
+    0.94
+  ],
+  "energies": [
+    -0.40957630037276027,
+    -0.6543825950162218,
+    -0.7401434124480064,
+    -0.8080303418572871,
+    -0.8143324076913792
+  ],
+  "metadata": {
+    "basis": "sto3g",
+    "mapper": "JordanWigner",
+    "ansatz": "UCCSD",
+    "reps": 1,
+    "optimizer": {
+      "name": "COBYLA",
+      "settings": {
+        "maxiter": 20,
+        "disp": false,
+        "rhobeg": 1.0,
+        "max_evals_grouped": 1,
+        "options": {},
+        "tol": 1e-05
+      }
+    },
+    "active_space": [
+      2,
+      2
+    ],
+    "freeze_core": false,
+    "seed": 42,
+    "distance_grid": "np.linspace(0.540, 0.940, 5)"
+  }
+}

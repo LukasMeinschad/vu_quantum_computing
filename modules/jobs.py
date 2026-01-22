@@ -915,11 +915,11 @@ def run_h2_bond_scan() -> dict[str, Any]:
         "ansatz_method": "UCCSD",
         "entanglement": "linear",
         "reps": 1,
-        "optimizer_maxiter": 150,
+        "optimizer_maxiter": 20,
         "optimizer_rhobeg": 1.0,
         "optimizer_tol": 1e-5,
         "seed": 42,
-        "distances": np.linspace(0.25, 2.2, 80),
+        "distances": np.linspace(0.54, 0.94, 5),
     }
 
     distances = h2_scan_config["distances"]
