@@ -906,17 +906,17 @@ def run_lih_bond_scan() -> dict[str, Any]:
         "basis": "sto3g",
         "charge": 0,
         "spin": 0,
-        "freeze_core": False,
+        "freeze_core": True,
         "active_space": (2, 3),
         "mapper": "JordanWigner",
         "ansatz_method": "UCCSD",
         "entanglement": "linear",
-        "reps": 2,
-        "optimizer_maxiter": 150,
+        "reps": 1,
+        "optimizer_maxiter": 300,
         "optimizer_rhobeg": 1.0,
-        "optimizer_tol": 1e-6,
+        "optimizer_tol": 1e-5,
         "seed": 42,
-        "distances": np.linspace(1.4, 1.9, 10),
+        "distances": np.linspace(0.7, 3.2, 100),
     }
 
     distances = lih_scan_config["distances"]
