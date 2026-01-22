@@ -277,7 +277,7 @@ def run_vqe_single_point(
     ########################################################################
     ### HARDCODED DEFAULT ESTIMATOR FOR COMPARISON PLOTS IN PRESENTATION ###
     ########################################################################
-    estimator = EstimatorV2()
+    # estimator = EstimatorV2()
 
     # Default primitives: use shot-based sampler if provided, else estimator.
     if sampler is None and estimator is None:
